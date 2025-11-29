@@ -1,9 +1,12 @@
-html, body, #app {
+html,
+body,
+#app {
     padding: 0;
     margin: 0;
     width: 100%;
     height: 100%;
     overflow: hidden;
+    font-family: monospace;
 }
 
 .grid {
@@ -26,8 +29,28 @@ html, body, #app {
     flex: 1;
 }
 
-.split .left, .split .right {
+.split .left,
+.split .right {
     display: block;
     width: 50%;
     height: 100%;
+}
+
+@media (max-width: 700px) {
+    .split {
+        flex-direction: column;
+    }
+
+    .split .left,
+    .split .right {
+        width: 100%;
+        height: 50%;
+    }
+}
+
+.errors {
+    position: fixed;
+    width: 100%;
+    bottom: 0;
+    color: red;
 }

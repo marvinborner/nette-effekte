@@ -12,10 +12,13 @@ type Html[Ev] {
   Element(tag: String, classes: List[String], handler: List[EventHandler[Ev]], children: List[Html[Ev]], value: String)
 }
 
+/// for better textarea experience
+/// we should really be using DOM diffing or something, but this is fine
+type Dirtiness { Keep(); Redraw() }
+
 type EventHandler[Ev] {
-  OnClick(handler: Ev)
-  OnKeyDown(handler: Char => Ev at {})
-  OnChange(handler: String => Ev at {})
+  OnClick(handler: Ev, dirty: Dirtiness)
+  OnKeyUp(handler: String => Ev at {}, dirty: Dirtiness)
 }
 
 extern type IdleDeadline
@@ -26,13 +29,7 @@ extern def requestIdleCallback(callback: (IdleDeadline) => Unit at {io, global})
 extern def style(path: String) at io: Unit =
   jsWeb "document.head.insertAdjacentHTML('beforeend', '<link rel=\"stylesheet\" href=${path} />')"
 
-// convert textarea .key String event to Effekt Char
-def decodeKey(key: String) = key match {
-  case "Enter" => '\r'
-  case _ => key.unsafeCharAt(0)
-}
-
-// TODO: this shouldn't need IO nor global!!
+// TODO: this shouldn't need IO nor global!! (possibly because of .getOrElse(<>))
 record View[St, Ev](
   update: Ev => Unit / State[St] at {io,global},
   view: () => Html[Ev] / State[St] at {io,global}
@@ -42,6 +39,7 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
   case View(update, view) =>
     val inbox = ref[List[Ev]](Nil())
     val state = ref(init)
+    val dirty = ref(true)
 
     def send(ev: Ev): Unit = inbox.set(Cons(ev, inbox.get))
 
@@ -53,13 +51,16 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
         el.setValue(value)
         classes.foreach { class => el.addClass(class); () }
         handler.foreach {
-          case OnClick(ev) =>
-            el.onClick(box { send(ev) })
-            ()
-          case OnKeyDown(ev) =>
-            el.onKeyDown(box { key => send(ev(key.decodeKey)) })
-            ()
-          case OnChange(h) => ()
+          case OnClick(ev, dirtiness) =>
+            el.onClick(box {
+              send(ev);
+              if (dirtiness is Redraw()) dirty.set(true)
+            })
+          case OnKeyUp(ev, dirtiness) =>
+            el.onKeyUp(box { key =>
+              send(ev(el.value))
+              if (dirtiness is Redraw()) dirty.set(true)
+            })
         }
         children.foreach { child =>
           el.appendChild(child.render)
@@ -71,8 +72,11 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
     // renders the app with the current state
     def render(): Unit = {
       val rendered = statefully(state) { view() }.render
-      root.clear;
-      root.appendChild(rendered);
+      if (dirty.get()) {
+        root.clear;
+        root.appendChild(rendered); ()
+      }
+      dirty.set(false)
       ()
     }
 

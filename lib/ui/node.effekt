@@ -9,8 +9,8 @@ val documentBody: Node = getDocumentBody()
 extern def onClick(node: Node, handler: () => Unit at {io, global}) at io: Unit =
   jsWeb "${node}.addEventListener('click', () => $effekt.runToplevel(${handler}))"
 
-extern def onKeyDown(node: Node, handler: String => Unit at {io, global}) at io: Unit =
-  jsWeb "${node}.addEventListener('keydown', ({key}) => $effekt.runToplevel((ks, k) => ${handler}(key, ks, k)))"
+extern def onKeyUp(node: Node, handler: String => Unit at {io, global}) at io: Unit =
+  jsWeb "${node}.addEventListener('keyup', ({key}) => $effekt.runToplevel((ks, k) => ${handler}(key, ks, k)))"
 
 extern def createElement(tag: String) at io: Node =
   jsWeb "document.createElement(${tag})"
