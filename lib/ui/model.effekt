@@ -1,0 +1,13 @@
+interface State[St] {
+  def getState(): St
+  def setState(s: St): Unit
+}
+
+def modifyState[St] { f: St => St }: Unit / State[St] =
+  do setState(f(do getState()))
+
+def statefully[R, St](r: Ref[St]) { prog: () => R / State[St] }: R =
+  try prog() with State[St] {
+    def getState() = resume(r.get())
+    def setState(newState) = { r.set(newState); resume(()) }
+  }

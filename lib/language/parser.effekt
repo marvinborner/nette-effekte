@@ -1,0 +1,49 @@
+// based on frontend casestudy at @effekt-lang/effekt
+
+import lib/language/lexer
+
+interface Nondet {
+  def alt(): Bool
+  def fail(msg: String): Nothing
+}
+
+effect Parser = { Nondet, Lexer }
+
+def accept { p: Token => Bool } : Token / Parser = {
+  val got = do next();
+  if (p(got)) got
+  else do fail("Unexpected ${got.show} token")
+}
+
+def any() = accept { t => true }
+def accept(exp: TokenKind) = accept { t => t.kind == exp }
+def ident() = accept(Ident()).text
+def number() = accept(Number()).text
+def punct(p: String) = {
+  val tok = accept(Punct())
+  if (tok.text == p) ()
+  else do fail("Expected " ++ p ++ " but got " ++ tok.text)
+}
+def kw(exp: String): Unit / Parser = {
+  val got = ident();
+  if (got == exp) ()
+  else do fail("Expected keyword " ++ exp ++ " but got " ++ got)
+}
+
+def or[R] { p: => R } { q: => R } =
+  if (do alt()) { p() } else { q() }
+
+def opt[R] { p: => R }: Option[R] / Parser =
+  or { Some(p()) } { None() }
+
+def many { p: => Unit }: Unit / Parser =
+  or { some { p() } } { () }
+
+def many[R] { p: => R }: List[R] / Parser =
+  or { some { p() } } { Nil[R]() }
+
+def some { p: => Unit }: Unit / Parser =
+  { p(); many { p() } }
+
+def some[R] { p: => R }: List[R] / Parser =
+  { Cons(p(), many { p() }) }

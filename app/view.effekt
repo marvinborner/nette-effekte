@@ -1,0 +1,73 @@
+import lib/ui/view
+import lib/ui/node
+
+import app/model
+
+def text[Ev](content: String) = Text[Ev](content)
+
+def button[Ev](handler: List[EventHandler[Ev]], classes: List[String], children: List[Html[Ev]]) =
+  Element("button", classes, handler, children, "")
+
+def div[Ev](handler: List[EventHandler[Ev]], classes: List[String], children: List[Html[Ev]]) =
+  Element("div", classes, handler, children, "")
+
+def div[Ev](classes: List[String], children: List[Html[Ev]]): Html[Ev] =
+  div([], classes, children)
+
+def canvas[Ev](handler: List[EventHandler[Ev]], classes: List[String]): Html[Ev] =
+  Element("canvas", classes, handler, [], "")
+
+def textarea[Ev](handler: List[EventHandler[Ev]], classes: List[String], text: TextStream): Html[Ev] =
+  Element("textarea", classes, handler, [], collect { text() })
+
+// ---
+
+type Event {
+  Compile();
+  Step();
+  NextMode();
+  HandleCanvas();
+  AppendSource(c: Char);
+}
+
+def dispatch(msg: Event) = msg match {
+  case Compile()       => do compile()
+  case Step()          => do step()
+  case NextMode()      => do nextMode()
+  case HandleCanvas()  => do handleCanvas()
+  case AppendSource(c) => do appendSource(c)
+}
+
+def view(): Html[Event] / Model = {
+  div([ "grid" ], [
+    div([ "menu" ], [
+      text("Nette Effekte"),
+      button([ OnClick(NextMode()) ], [], [ text("Current Mode: " ++ show(do getMode())) ]),
+      button([ OnClick(Compile())], [], [ text("Compile") ]),
+      button([ OnClick(Step()) ], [], [ text("Step") ]),
+    ]),
+    div([ "split" ], [
+      textarea([ OnKeyDown(box { c => AppendSource(c) }) ], ["left", "code"], do getSource(do getMode())),
+      canvas([ OnClick(HandleCanvas()) ], ["right", "inet"]),
+    ])
+  ])
+}
+
+def start() = {
+  style("../app/style.css")
+
+  val appDiv = getElementById("app").getOrElse {
+    val newDiv = createElement("div").setAttribute("id", "app")
+    documentBody.appendChild(newDiv)
+  }
+
+  run(appDiv, emptyEvaluatorState(), View(
+    update = box { (ev) =>
+      with model
+      ev.dispatch()
+    },
+    view = box {
+      with model
+      view()
+    }))
+}

@@ -1,0 +1,124 @@
+// based on frontend casestudy at @effekt-lang/effekt
+
+import regex
+
+record Position(line: Int, col: Int, index: Int)
+
+def show(p: Position): String = "${p.line.show}:${p.col.show}:${p.index.show}"
+
+type TokenKind { Number(); Ident(); Punct(); Space() }
+
+def show(t: TokenKind): String = t match {
+  case Number() => "number"
+  case Ident()  => "identifier"
+  case Punct()  => "punctuation"
+  case Space()  => "space"
+}
+
+def infixEq(t1: TokenKind, t2: TokenKind): Bool =
+  (t1, t2) match {
+    case (Number(), Number()) => true
+    case (Ident(), Ident()) => true
+    case (Punct(), Punct()) => true
+    case (Space(), Space()) => true
+    case _ => false
+  }
+
+record Token(kind: TokenKind, text: String, position: Position)
+
+def show(t: Token): String = t.kind.show
+
+interface Lexer {
+  def peek(): Option[Token]
+  def next(): Token
+}
+
+effect LexerError(msg: String, pos: Position): Nothing
+val dummyPosition = Position(0, 0, 0)
+
+def lexerFromList[R](l: List[Token]) { program: => R / Lexer }: R / LexerError = {
+  var in = l;
+  try { program() } with Lexer {
+    def peek() = in match {
+      case Nil() => resume(None())
+      case Cons(tok, _) => resume(Some(tok))
+    }
+    def next() = in match {
+      case Nil() => do LexerError("Unexpected end of input", dummyPosition)
+      case Cons(tok, _) => resume(tok)
+    }
+  }
+}
+
+def report { prog: => Unit / LexerError }: Unit =
+  try { prog() } with LexerError { (msg, pos) =>
+    println(pos.line.show ++ ":" ++ pos.col.show ++ " " ++ msg)
+  }
+
+record TokenRx(kind: TokenKind, rx: Regex)
+
+val tokenDesriptors = [
+  TokenRx(Number(), "^[0-9]+".regex),
+  TokenRx(Ident(),  "^[a-zA-Z]+[a-zA-Z0-9]*".regex),
+  TokenRx(Punct(),  "^[+-=,.()\\[\\]{}:]".regex),
+  TokenRx(Space(),  "^[ \t\n]+".regex)
+]
+
+def lexer[R](in: String) { prog: => R / Lexer } : R / LexerError = {
+  // Additionally, we keep track of the current position in the input stream, by maintaining
+  // three mutable variables for the zero based index, and one-based column and line position.
+  var index = 0
+  var col = 1
+  var line = 1
+  // A few local helper functions ease the handling of the input stream.
+  // At the same time, we need to keep track of the line information.
+  def position() = Position(line, col, index)
+  def input() = in.substring(index)
+  def consume(text: String): Unit = {
+    with ignore[MissingValue]
+    val lines = text.split("\n")
+    val offset = lines.last.length
+    // compute new positions
+    index = index + text.length
+    line = line + lines.size - 1
+    if (lines.size == 1) { col = col + text.length } else { col = offset }
+  }
+  def eos(): Bool = index >= in.length
+  // The function `tryMatch` applies a given token description to the current position of
+  // the input stream, without advancing it. Its companion `tryMatchAll` returns the first token
+  // matched by any of the matches in the given description list.
+  def tryMatch(desc: TokenRx): Option[Token] =
+      desc.rx.exec(input()).map { m => Token(desc.kind, m.matched, position()) }
+
+  def tryMatchAll(descs: List[TokenRx]): Option[Token] = descs match {
+    case Nil() => None()
+    case Cons(desc, descs) => tryMatch(desc).orElse { tryMatchAll(descs) }
+  }
+  // Now defining the lexer is trivial. We just need to use `tryMatchAll` and either consume
+  // the input, or not.
+  try { prog() } with Lexer {
+    def peek() = resume(tryMatchAll(tokenDesriptors))
+    def next() =
+      if (eos())
+        do LexerError("Unexpected EOS", position())
+      else {
+        val tok = tryMatchAll(tokenDesriptors).getOrElse {
+          do LexerError("Cannot tokenize input", position())
+        }
+        consume(tok.text)
+        resume(tok)
+      }
+  }
+}
+
+def skipSpaces(): Unit / Lexer = do peek() match {
+  case None() => ()
+  case Some(Token(Space(), _, _)) => do next(); skipSpaces()
+  case _ => ()
+}
+
+def skipWhitespace[R] { prog: => R / Lexer }: R / Lexer =
+  try { prog() } with Lexer {
+    def peek() = { skipSpaces(); resume(do peek()) }
+    def next() = { skipSpaces(); resume(do next()) }
+  }

@@ -1,0 +1,47 @@
+import lib/language/ic/term
+
+import lib/language/lexer
+import lib/language/parser
+
+def parsePolarization(): Polarization / Parser = or {
+  punct("+")
+  Pos()
+} {
+  punct("-")
+  Neg()
+}
+
+def parsePort(): Port / Parser = {
+  val name = ident()
+  val pol = parsePolarization()
+  Port(name, pol)
+}
+
+def parseConstructor(): Constructor / Parser = {
+  val pp = parsePort()
+  punct("(")
+  val aux = some {
+    val port = parsePort()
+    opt { punct(",") }
+    port
+  }
+  punct(")")
+  Constructor(pp, aux, LightTriangle())
+}
+
+def parseProgram(): Program / Parser = {
+  val ctors: List[Constructor] = some { parseConstructor() }
+  Program(ctors)
+}
+
+def parse(input: String): Program / Exception[WrongFormat] =
+  try { lexer(input) { skipWhitespace { Success(parseProgram()) }}}
+  with Nondet {
+    def alt() = resume(true) match {
+      case Error(_, _) => resume(false)
+      case Success(res) => Success(res)
+    }
+    def fail(msg) = Error(WrongFormat(), msg)
+  }
+  with LexerError { (msg, pos) => Error(WrongFormat(), "${pos.show}: ${msg}") }
+  .value

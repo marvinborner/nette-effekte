@@ -1,0 +1,47 @@
+// based on exercise 5 template by @jiribenes (MIT)
+
+extern type Node
+
+extern def getDocumentBody() at {}: Node = jsWeb "(document.body)"
+
+val documentBody: Node = getDocumentBody()
+
+extern def onClick(node: Node, handler: () => Unit at {io, global}) at io: Unit =
+  jsWeb "${node}.addEventListener('click', () => $effekt.runToplevel(${handler}))"
+
+extern def onKeyDown(node: Node, handler: String => Unit at {io, global}) at io: Unit =
+  jsWeb "${node}.addEventListener('keydown', ({key}) => $effekt.runToplevel((ks, k) => ${handler}(key, ks, k)))"
+
+extern def createElement(tag: String) at io: Node =
+  jsWeb "document.createElement(${tag})"
+
+extern def createTextNode(text: String) at io: Node =
+  jsWeb "document.createTextNode(${text})"
+
+extern def appendChild(node: Node, child: Node) at io: Node =
+  jsWeb "${node}.appendChild(${child})"
+
+extern def setAttribute(node: Node, key: String, value: String) at io: Node =
+  jsWeb "(function() { ${node}.setAttribute(${key}, ${value}); return ${node} })()"
+
+extern def innerHTML(node: Node, contents: String) at io: Node =
+  jsWeb "(function() { ${node}.innerHTML = ${contents}; return ${node} })()"
+
+extern def setValue(node: Node, value: String) at io: Node =
+  jsWeb "(function() { ${node}.value = ${value}; return ${node} })()"
+
+extern def addClass(node: Node, class: String) at io: Node =
+  jsWeb "(function() { ${node}.classList.add(${class}) })()"
+
+extern def unsafeGetElementById(id: String) at io: Node =
+  jsWeb "document.getElementById(${id})"
+
+extern def value(node: Node) at io: String =
+  jsWeb "(${node}.value)"
+
+def getElementById(id: String): Option[Node] = {
+  val unsafeElement = unsafeGetElementById(id)
+  undefinedToOption(unsafeElement)
+}
+
+def clear(node: Node) = node.innerHTML("")

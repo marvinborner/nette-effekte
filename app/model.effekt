@@ -1,0 +1,66 @@
+import map
+
+import lib/ui/model
+
+type Mode { SourceLanguage(); LambdaCalculus(); InteractionCalculus() }
+
+type TextStream = => Unit / emit[Char] at {global}
+record EvaluatorState(currentMode: Mode, sources: Map[Mode, TextStream])
+
+interface Model {
+  def compile(): Unit
+  def step(): Unit
+  def nextMode(): Unit
+  def handleCanvas(): Unit
+  def appendSource(c: Char): Unit
+
+  def getMode(): Mode
+  def getSource(mode: Mode): TextStream
+}
+
+def show(m: Mode) = m match {
+  case SourceLanguage()      => "Source Language"
+  case LambdaCalculus()      => "Lambda Calculus"
+  case InteractionCalculus() => "Interaction Calculus"
+}
+
+def emptyEvaluatorState() = {
+  var map = map::emptyGeneric[Mode, TextStream]()
+  val emptyStream = box { () => do emit(' ') }
+  map = map.put(SourceLanguage(), emptyStream)
+  map = map.put(LambdaCalculus(), emptyStream)
+  map = map.put(InteractionCalculus(), emptyStream)
+  EvaluatorState(SourceLanguage(), map)
+}
+
+def nextMode(state: EvaluatorState): EvaluatorState = state match {
+  case EvaluatorState(SourceLanguage(), sources)      => EvaluatorState(LambdaCalculus(), sources)
+  case EvaluatorState(LambdaCalculus(), sources)      => EvaluatorState(InteractionCalculus(), sources)
+  case EvaluatorState(InteractionCalculus(), sources) => EvaluatorState(SourceLanguage(), sources)
+}
+
+def appendSource(state: EvaluatorState, c: Char): EvaluatorState = state match {
+  case EvaluatorState(mode, sources) => {
+    val currentStream = sources.getOrElse(mode){<>}
+    val newStream = box { currentStream(); do emit(c) }
+    EvaluatorState(mode, sources.put(mode, newStream))
+  }
+}
+
+def model[R] { prog: => R / Model }: R / State[EvaluatorState] =
+  try { prog() }
+  with Model {
+    def compile() = <>
+    def step() = <>
+    def nextMode() = resume(modifyState { st => st.nextMode })
+    def appendSource(c) = resume(modifyState { st => st.appendSource(c) })
+    def handleCanvas() = <>
+
+    def getMode() = resume((do getState()).currentMode)
+    def getSource(mode) = {
+      val state = do getState()
+      // i'd panic here but it's at io for some reason ;)
+      val source = state.sources.getOrElse(mode){<>}
+      resume(source)
+    }
+  }

@@ -1,0 +1,23 @@
+type Polarization { Pos(); Neg() }
+
+record Port(name: String, pol: Polarization)
+
+type Kind { LightTriangle(); DarkTriangle(); LightCircle(); DarkCircle() }
+
+record Constructor(pp: Port, aux: List[Port], kind: Kind)
+record Program(ctors: List[Constructor])
+
+def show(pol: Polarization) = pol match {
+  case Pos() => "+"
+  case Neg() => "-"
+}
+
+def show(port: Port) = port.name ++ port.pol.show()
+
+def show(ctor: Constructor) = {
+  val pp = ctor.pp.show()
+  val aux = ctor.aux.map { p => p.show() }.join(", ")
+  "${pp}(${aux})"
+}
+
+def show(program: Program) = program.ctors.map { p => p.show() }.join("\n")

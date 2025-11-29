@@ -1,0 +1,96 @@
+// based on exercise 5 template by @jiribenes (MIT)
+
+import ref
+import string
+import test
+
+import lib/ui/model
+import lib/ui/node
+
+type Html[Ev] {
+  Text(content: String);
+  Element(tag: String, classes: List[String], handler: List[EventHandler[Ev]], children: List[Html[Ev]], value: String)
+}
+
+type EventHandler[Ev] {
+  OnClick(handler: Ev)
+  OnKeyDown(handler: Char => Ev at {})
+  OnChange(handler: String => Ev at {})
+}
+
+extern type IdleDeadline
+
+extern def requestIdleCallback(callback: (IdleDeadline) => Unit at {io, global}) at io: Unit =
+  jsWeb "window.requestIdleCallback(deadline => $effekt.runToplevel((ks, k) => ${callback}(deadline, ks, k)))"
+
+extern def style(path: String) at io: Unit =
+  jsWeb "document.head.insertAdjacentHTML('beforeend', '<link rel=\"stylesheet\" href=${path} />')"
+
+// convert textarea .key String event to Effekt Char
+def decodeKey(key: String) = key match {
+  case "Enter" => '\r'
+  case _ => key.unsafeCharAt(0)
+}
+
+// TODO: this shouldn't need IO nor global!!
+record View[St, Ev](
+  update: Ev => Unit / State[St] at {io,global},
+  view: () => Html[Ev] / State[St] at {io,global}
+)
+
+def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
+  case View(update, view) =>
+    val inbox = ref[List[Ev]](Nil())
+    val state = ref(init)
+
+    def send(ev: Ev): Unit = inbox.set(Cons(ev, inbox.get))
+
+    // renders the Node to the DOM
+    def render(html: Html[Ev]): Node = html match {
+      case Text(content) => createTextNode(content)
+      case Element(tag, classes, handler, children, value) =>
+        val el = createElement(tag)
+        el.setValue(value)
+        classes.foreach { class => el.addClass(class); () }
+        handler.foreach {
+          case OnClick(ev) =>
+            el.onClick(box { send(ev) })
+            ()
+          case OnKeyDown(ev) =>
+            el.onKeyDown(box { key => send(ev(key.decodeKey)) })
+            ()
+          case OnChange(h) => ()
+        }
+        children.foreach { child =>
+          el.appendChild(child.render)
+          ()
+        }
+        el
+    }
+
+    // renders the app with the current state
+    def render(): Unit = {
+      val rendered = statefully(state) { view() }.render
+      root.clear;
+      root.appendChild(rendered);
+      ()
+    }
+
+    def loop(deadline: IdleDeadline): Unit = {
+      val messages = inbox.get.reverse
+      inbox.set(Nil())
+
+      if (messages.nonEmpty) {
+        messages.foreach { ev =>
+          with statefully(state)
+          update(ev)
+        }
+
+        render()
+      }
+      requestIdleCallback(box loop)
+    }
+
+    render()
+    requestIdleCallback(box loop)
+}

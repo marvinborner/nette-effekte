@@ -1,0 +1,11 @@
+import app/view
+
+import lib/language/ic/parser
+import lib/language/ic/term
+
+def main() at {io, global}: Unit / {} = {
+  with report(on[WrongFormat])
+
+  println(parse("foo+(a-, b-)").show())
+  start()
+}
