@@ -33,6 +33,11 @@ def kw(exp: String): Unit / Parser = {
 def or[R] { p: => R } { q: => R } =
   if (do alt()) { p() } else { q() }
 
+def or[R](ps: List[=> R / Parser at {global}]): R / Parser = {
+  with on[MissingValue].default { do fail("none matched") }
+  if (do alt()) { (ps.head)() } else { or(ps.tail) }
+}
+
 def opt[R] { p: => R }: Option[R] / Parser =
   or { Some(p()) } { None() }
 

@@ -43,7 +43,7 @@ def view(): Html[Event] / Model = {
     div([ "menu" ], [
       text("Nette Effekte"),
       button([ OnClick(NextMode(), Redraw()) ], [], [ text("Current Mode: " ++ show(do getMode())) ]),
-      button([ OnClick(Render(), Redraw())], [], [ text("Compile") ]),
+      button([ OnClick(Render(), Redraw())], [], [ text("Render") ]),
       button([ OnClick(Step(), Redraw()) ], [], [ text("Step") ]),
     ]),
     div([ "split" ], [

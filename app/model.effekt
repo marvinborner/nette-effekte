@@ -38,7 +38,7 @@ def emptyEvaluatorState() = {
   map = map.put(SourceLanguage(), emptyStream)
   map = map.put(LambdaCalculus(), emptyStream)
   map = map.put(InteractionCalculus(), emptyStream)
-  // EvaluatorState(SourceLanguage(), map, "")
+  // EvaluatorState(SourceLanguage(), map, emptyNetState(), "")
   EvaluatorState(InteractionCalculus(), map, emptyNetState(), "")
 }
 

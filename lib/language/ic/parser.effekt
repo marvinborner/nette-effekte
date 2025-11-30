@@ -19,14 +19,23 @@ def parsePort(): Port / Parser = {
 
 def parseConstructor(): Constructor / Parser = {
   val pp = parsePort()
-  punct("(")
+  val kind = or([
+    box { punct("("); LightTriangle() },
+    box { punct("["); DarkTriangle() },
+    box { punct("{"); LightCircle() },
+  ])
   val aux = some {
     val port = parsePort()
     opt { punct(",") }
     port
   }
-  punct(")")
-  Constructor(pp, aux, LightTriangle())
+  kind match {
+    case LightTriangle() => punct(")")
+    case DarkTriangle() => punct("]")
+    case LightCircle() => punct("}")
+    case DarkCircle() => punct("?") // TODO: dark circle
+  }
+  Constructor(pp, aux, kind)
 }
 
 def parseProgram(): List[Constructor] / Parser = some { parseConstructor() }

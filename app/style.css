@@ -22,6 +22,7 @@ body,
     background: #eee;
     border-bottom: 1px solid black;
     flex-shrink: 0;
+    padding: 10px;
 }
 
 .split {
@@ -49,8 +50,18 @@ body,
 }
 
 .errors {
+    display: flex;
     position: fixed;
+    align-items: center;
     width: 100%;
     bottom: 0;
-    color: red;
+    background-color: #cdf1e7; /* from effekt-lang.org */
+    padding: 0 10px 0 10px;
+}
+
+.errors::before {
+    content: "⚠";
+    display: inline-block;
+    margin-right: 5px;
+    font-size: xxx-large;
 }
