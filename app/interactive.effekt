@@ -9,34 +9,58 @@ record NetState(net: Net, canvas: Canvas)
 def empty(): Net = box {}
 def empty() = NetState(empty(), empty())
 
-effect lookup(label: Label): Vector
+effect waitFor(label: Label): Unit
 
 // wires are often emitted before agents, we need to match them bidirectionally!
-def render(state: NetState): Unit / Geometry = {
-  var positions: Map[Label, Vector] = emptyGeneric()
-  try (state.net)()
-  with emit[Agent] { agent =>
-    val triangle = Triangle(agent.pos, 100.0)
-    positions = positions.put(agent.pp, principal(triangle))
-    
-    // where foldRightIndex?
-    positions = foldRight(agent.aux, (positions, 0)) { (port, tup) => {
-      val (mp, i) = tup
-      (mp.put(port, auxiliary(triangle, i)), i + 1)
-    } }.first
-    resume(triangle.dispatch)
+// this is horribly overengineered, TODO: clean rewrite
+def render(state: NetState) {geo: Geometry}: Unit = region r {
+  var positions: Map[Label, Vector] in r = emptyGeneric()
+  var waiting: Map[Label, Unit => Unit at {io, geo, r}] in r = emptyGeneric()
+
+  def resolve(label: Label, position: Vector) = {
+    positions = positions.put(label, position)
+    if (waiting.contains(label)) (waiting.getOrElse(label) { panic("what") })(())
   }
-  with emit[Wire] { wire =>
-    val from = positions.getOrElse(wire.from) { panic("no position") }
-    val to = positions.getOrElse(wire.to) { panic("no position") }
-    resume(do arrow(from, to))
-    // val from = positions.getOrElse(wire.from) { resume(do lookup(wire.from)) }
-    // val to = positions.getOrElse(wire.to) { resume(do lookup(wire.to)) }
+
+  try {
+    try (state.net)()
+    with emit[Agent] { agent =>
+      val triangle = Triangle(agent.pos, 100.0)
+      resolve(agent.pp, principal(triangle))
+      agent.aux.foreachIndex { (port, i) => resolve(port, auxiliary(triangle, i)) }
+      geo.triangle(triangle.center, triangle.height)
+      resume(())
+    }
+    with emit[Wire] { wire =>
+      var resumed = false
+
+      val from = positions.getOrElse(wire.from) {
+        resume(do waitFor(wire.from));
+        waiting = waiting.delete(wire.from)
+        resumed = true
+        positions.getOrElse(wire.from) { panic("invalid position resumption") }
+      }
+      val to = positions.getOrElse(wire.to) {
+        do waitFor(wire.to)
+        if (resumed) resume(())
+        waiting = waiting.delete(wire.from)
+        resumed = true
+        positions.getOrElse(wire.to) { panic("invalid position resumption") }
+      }
+      geo.arrow(from, to)
+      if (resumed) resume(())
+    }
   }
+  with waitFor { label =>
+    val re: Unit => Unit at {io, geo, r} = box resume
+    waiting.put(label, re)
+    resume(())
+  }
+  if (waiting.size > 0) panic("not all ports were resolved!")
 }
 
 def render(state: NetState): NetState = {
-  val canvas = applyGeometry { render(state) }
+  val canvas = applyGeometry { render(state){geo} }
   NetState(state.net, canvas)
 }
 
