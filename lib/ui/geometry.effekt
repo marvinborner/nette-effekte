@@ -1,0 +1,22 @@
+record Vector(x: Double, y: Double)
+
+interface Geometry {
+  def arrow(from: Vector, to: Vector): Unit
+  def triangle(center: Vector, size: Double): Unit
+}
+
+record Arrow(from: Vector, to: Vector)
+record Triangle(center: Vector, height: Double)
+
+def dispatch(arrow: Arrow) = do arrow(arrow.from, arrow.to)
+def dispatch(triangle: Triangle) = do triangle(triangle.center, triangle.height)
+
+def principal(triangle: Triangle): Vector = {
+  Vector(triangle.center.x, triangle.center.y + triangle.height)
+}
+
+def auxiliary(triangle: Triangle, index: Int): Vector = {
+  val width = 50.0
+  val step = 10.0 // TODO
+  Vector(triangle.center.x - width + index.toDouble * step, triangle.center.y - triangle.height)
+}

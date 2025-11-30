@@ -1,19 +1,46 @@
+import map
+
 import lib/net/net
+import lib/ui/geometry
+import lib/ui/canvas
 
-record NetState()
+record NetState(net: Net, canvas: Canvas)
 
-def emptyNetState() = NetState()
+def empty(): Net = box {}
+def empty() = NetState(empty(), empty())
 
-def loadNet { prog: => Unit / { emit[Wire], emit[Agent] } }: NetState = {
-  try exhaustively { prog() }
-  with emit[Wire] { wire =>
-    println(wire.from)
-    println(wire.to)
-    resume(())
-  }
+effect lookup(label: Label): Vector
+
+// wires are often emitted before agents, we need to match them bidirectionally!
+def render(state: NetState): Unit / Geometry = {
+  var positions: Map[Label, Vector] = emptyGeneric()
+  try (state.net)()
   with emit[Agent] { agent =>
-    println(inspect(agent))
-    resume(())
+    val triangle = Triangle(agent.pos, 100.0)
+    positions = positions.put(agent.pp, principal(triangle))
+    
+    // where foldRightIndex?
+    positions = foldRight(agent.aux, (positions, 0)) { (port, tup) => {
+      val (mp, i) = tup
+      (mp.put(port, auxiliary(triangle, i)), i + 1)
+    } }.first
+    resume(triangle.dispatch)
   }
-  emptyNetState()
+  with emit[Wire] { wire =>
+    val from = positions.getOrElse(wire.from) { panic("no position") }
+    val to = positions.getOrElse(wire.to) { panic("no position") }
+    resume(do arrow(from, to))
+    // val from = positions.getOrElse(wire.from) { resume(do lookup(wire.from)) }
+    // val to = positions.getOrElse(wire.to) { resume(do lookup(wire.to)) }
+  }
+}
+
+def render(state: NetState): NetState = {
+  val canvas = applyGeometry { render(state) }
+  NetState(state.net, canvas)
+}
+
+def loadNet { prog: => Unit / NetStream }: NetState = {
+  val net = collect { prog() }
+  NetState(net, empty())
 }

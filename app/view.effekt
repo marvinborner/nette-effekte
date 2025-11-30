@@ -62,7 +62,7 @@ def start() = {
     documentBody.appendChild(newDiv)
   }
 
-  run(appDiv, emptyEvaluatorState(), View(
+  run(appDiv, model::empty(), View(
     update = box { (ev) =>
       with model
       ev.dispatch()

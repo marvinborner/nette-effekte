@@ -1,9 +1,10 @@
 import map
 
+import lib/ui/geometry
 import lib/language/ic/term
 import lib/net/net
 
-def net!(): Unit / { Exception[WrongFormat], read[Constructor], emit[Agent], emit[Wire] } = {
+def net!(): Unit / { Exception[WrongFormat], read[Constructor], NetStream } = {
   var ids: Label = 0
   var map: Map[String, Label] = emptyGeneric()
 
@@ -25,6 +26,6 @@ def net!(): Unit / { Exception[WrongFormat], read[Constructor], emit[Agent], emi
     val ctor = do read()
     val pp_ = ctor.pp.uniqueMatch()
     val aux_ = ctor.aux.map { p => p.uniqueMatch() }
-    do emit(Agent(ctor.pp.name, pp_, aux_, ctor.kind, Position(0.0, 0.0)))
+    do emit(Agent(ctor.pp.name, pp_, aux_, ctor.kind, Vector(0.0, 0.0)))
   }
 }

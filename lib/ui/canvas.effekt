@@ -1,0 +1,14 @@
+import lib/ui/geometry
+
+record Canvas()
+
+def empty() = Canvas()
+
+def applyGeometry { prog: => Unit / Geometry }: Canvas = {
+  try prog()
+  with Geometry {
+    def arrow(from, to) = inspect(from)
+    def triangle(center, size) = inspect(center)
+  }
+  empty()
+}

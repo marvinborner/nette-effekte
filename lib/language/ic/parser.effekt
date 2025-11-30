@@ -55,5 +55,7 @@ def parseS(input: String): List[Constructor] / Exception[WrongFormat] =
 
 // TODO: also support parsing rules (emit[Rule])
 //   "! f-(a-, k+) <> f+(x+, b-) ~> [a-/x-][k-/b-]"
-def parse!(): Unit / { Exception[WrongFormat], read[Char], emit[Constructor] } =
+// TODO: we sometimes swallow parsing errors because everything is streamed, is there an easy fix?
+def parse!(): Unit / { Exception[WrongFormat], read[Char], emit[Constructor] } = {
   parseS(collect { exhaustively { do emit(do read[Char]()) } }).each
+}

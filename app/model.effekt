@@ -32,14 +32,14 @@ def show(m: Mode) = m match {
   case InteractionCalculus() => "Interaction Calculus"
 }
 
-def emptyEvaluatorState() = {
+def empty() = {
   var map = map::emptyGeneric[Mode, TextStream]()
   val emptyStream: => Unit / emit[Char] at {} = box{}
   map = map.put(SourceLanguage(), emptyStream)
   map = map.put(LambdaCalculus(), emptyStream)
   map = map.put(InteractionCalculus(), emptyStream)
-  // EvaluatorState(SourceLanguage(), map, emptyNetState(), "")
-  EvaluatorState(InteractionCalculus(), map, emptyNetState(), "")
+  // EvaluatorState(SourceLanguage(), map, empty(), "")
+  EvaluatorState(InteractionCalculus(), map, empty(), "")
 }
 
 def report[E](proxy: on[E], rollback: EvaluatorState) { prog: => EvaluatorState / Exception[E] }: EvaluatorState =
@@ -65,14 +65,17 @@ def setSource(state: EvaluatorState, s: String): EvaluatorState = state match {
   }
 }
 
-def render(state: EvaluatorState): EvaluatorState = state match {
-  case EvaluatorState(mode, sources, net, errors) => {
-    with on[WrongFormat].report(state)
-    with returning::source[Char, EvaluatorState] { sources.getOrElse(mode) { panic("invalid mode") }() }
-
-    val net_ = loadNet { compile!() }
-    EvaluatorState(mode, sources, net_, "")
+def render(state: EvaluatorState): EvaluatorState =
+  with on[WrongFormat].report(state)
+  with returning::source[Char, EvaluatorState] {
+    state.sources.getOrElse(state.mode) { panic("invalid mode") }()
   }
+  state match {
+    case EvaluatorState(InteractionCalculus(), sources, net, errors) => {
+      val net_ = render(loadNet { compile!() })
+      EvaluatorState(InteractionCalculus(), sources, net_, "")
+    }
+    case _ => <>
 }
 
 def model[R] { prog: => R / Model }: R / State[EvaluatorState] =

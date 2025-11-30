@@ -1,12 +1,22 @@
-record Position(x: Double, y: Double)
+import lib/ui/geometry
+
 type Kind { LightTriangle(); DarkTriangle(); LightCircle(); DarkCircle() }
 
 type Label = Int
 
-record Agent(name: String, pp: Label, aux: List[Label], kind: Kind, pos: Position)
+record Agent(name: String, pp: Label, aux: List[Label], kind: Kind, pos: Vector)
 record Wire(from: Label, to: Label)
 
-interface Net {
-  def agent(name: String, pp: Label, aux: List[Label], pos: Position): Unit
-  def wire(from: Label, to: Label): Unit
+// interface Net {
+//   def agent(name: String, pp: Label, aux: List[Label], pos: Position): Unit
+//   def wire(from: Label, to: Label): Unit
+// }
+
+effect NetStream = { emit[Wire], emit[Agent] }
+type Net = => Unit / NetStream at {}
+
+// TODO: is there a better way to box the streams that doesn't require collecting them first? Maybe using regions?
+def collect { prog: => Unit / NetStream }: Net = {
+  val both: Tuple2[List[Wire], List[Agent]] = returning::collect { collect { prog() } }
+  box { both.first.each; both.second.each }
 }
