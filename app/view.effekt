@@ -23,7 +23,7 @@ def textarea[Ev](handler: List[EventHandler[Ev]], classes: List[String], text: T
 // ---
 
 type Event {
-  Compile();
+  Render();
   Step();
   NextMode();
   HandleCanvas();
@@ -31,7 +31,7 @@ type Event {
 }
 
 def dispatch(msg: Event) = msg match {
-  case Compile()      => do compile()
+  case Render()       => do render()
   case Step()         => do step()
   case NextMode()     => do nextMode()
   case HandleCanvas() => do handleCanvas()
@@ -43,7 +43,7 @@ def view(): Html[Event] / Model = {
     div([ "menu" ], [
       text("Nette Effekte"),
       button([ OnClick(NextMode(), Redraw()) ], [], [ text("Current Mode: " ++ show(do getMode())) ]),
-      button([ OnClick(Compile(), Redraw())], [], [ text("Compile") ]),
+      button([ OnClick(Render(), Redraw())], [], [ text("Compile") ]),
       button([ OnClick(Step(), Redraw()) ], [], [ text("Step") ]),
     ]),
     div([ "split" ], [

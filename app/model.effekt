@@ -1,17 +1,21 @@
 import map
 
+import app/interactive
+import lib/net/net
+
 import lib/ui/model
 import lib/language/ic/parser
+import lib/language/ic/compiler
 
 import lib/language/ic/term
 
 type Mode { SourceLanguage(); LambdaCalculus(); InteractionCalculus() }
 
 type TextStream = => Unit / emit[Char] at {global}
-record EvaluatorState(currentMode: Mode, sources: Map[Mode, TextStream], errors: String)
+record EvaluatorState(mode: Mode, sources: Map[Mode, TextStream], net: NetState, errors: String)
 
 interface Model {
-  def compile(): Unit
+  def render(): Unit
   def step(): Unit
   def nextMode(): Unit
   def handleCanvas(): Unit
@@ -35,62 +39,56 @@ def emptyEvaluatorState() = {
   map = map.put(LambdaCalculus(), emptyStream)
   map = map.put(InteractionCalculus(), emptyStream)
   // EvaluatorState(SourceLanguage(), map, "")
-  EvaluatorState(InteractionCalculus(), map, "")
+  EvaluatorState(InteractionCalculus(), map, emptyNetState(), "")
 }
 
 def report[E](proxy: on[E], rollback: EvaluatorState) { prog: => EvaluatorState / Exception[E] }: EvaluatorState =
   try { prog() } with Exception[E] {
     def raise(exception: E, msg: String) = {
       println(msg)
-      EvaluatorState(rollback.currentMode, rollback.sources, msg)
+      EvaluatorState(rollback.mode, rollback.sources, rollback.net, msg)
     }
   }
 
-def clearErrors(state: EvaluatorState): EvaluatorState = state match {
-  case EvaluatorState(mode, sources, errors) => EvaluatorState(mode, sources, "")
-}
-
 def nextMode(state: EvaluatorState): EvaluatorState = state match {
-  case EvaluatorState(SourceLanguage(), sources, errors)      => EvaluatorState(LambdaCalculus(), sources, errors)
-  case EvaluatorState(LambdaCalculus(), sources, errors)      => EvaluatorState(InteractionCalculus(), sources, errors)
-  case EvaluatorState(InteractionCalculus(), sources, errors) => EvaluatorState(SourceLanguage(), sources, errors)
+  case EvaluatorState(SourceLanguage(), sources, net, errors)      => EvaluatorState(LambdaCalculus(), sources, net, errors)
+  case EvaluatorState(LambdaCalculus(), sources, net, errors)      => EvaluatorState(InteractionCalculus(), sources, net, errors)
+  case EvaluatorState(InteractionCalculus(), sources, net, errors) => EvaluatorState(SourceLanguage(), sources, net, errors)
 }
 
 def setSource(state: EvaluatorState, s: String): EvaluatorState = state match {
-  case EvaluatorState(mode, sources, errors) => {
+  case EvaluatorState(mode, sources, net, errors) => {
     // this would have been so cool but would only work for linear ASCII input (no escape, arrow keys)
     // val currentStream = sources.getOrElse(mode){<>}
     // val newStream = box { do emit(c); currentStream() }
-    EvaluatorState(mode, sources.put(mode, box { s.each }), errors)
+    EvaluatorState(mode, sources.put(mode, box { s.each }), net, errors)
   }
 }
 
-def compile(state: EvaluatorState): EvaluatorState = state match {
-  case EvaluatorState(mode, sources, errors) => {
+def render(state: EvaluatorState): EvaluatorState = state match {
+  case EvaluatorState(mode, sources, net, errors) => {
     with on[WrongFormat].report(state)
-    val currentStream = sources.getOrElse(mode){<>}
+    with returning::source[Char, EvaluatorState] { sources.getOrElse(mode) { panic("invalid mode") }() }
 
-    // println(parse("foo+(a-, b-)").show())
-    println(parse(collect { currentStream() }).show())
-    state.clearErrors
+    val net_ = loadNet { compile!() }
+    EvaluatorState(mode, sources, net_, "")
   }
 }
 
 def model[R] { prog: => R / Model }: R / State[EvaluatorState] =
   try { prog() }
   with Model {
-    def compile() = resume(modifyState { st => st.compile })
+    def render() = resume(modifyState { st => st.render })
     def step() = <>
     def nextMode() = resume(modifyState { st => st.nextMode })
     def setSource(c) = resume(modifyState { st => st.setSource(c) })
     def handleCanvas() = <>
 
-    def getMode() = resume((do getState()).currentMode)
+    def getMode() = resume((do getState()).mode)
     def getSource(mode) = {
       val state = do getState()
-      // i'd panic here but it's at io for some reason ;)
-      val source = state.sources.getOrElse(mode){<>}
+      val source = state.sources.getOrElse(mode) { panic("invalid mode") }
       resume(source)
     }
-    def getErrors() = resume((do getState()).errors) // TODO
+    def getErrors() = resume((do getState()).errors)
   }

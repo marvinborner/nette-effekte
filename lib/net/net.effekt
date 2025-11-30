@@ -1,0 +1,12 @@
+record Position(x: Double, y: Double)
+type Kind { LightTriangle(); DarkTriangle(); LightCircle(); DarkCircle() }
+
+type Label = Int
+
+record Agent(name: String, pp: Label, aux: List[Label], kind: Kind, pos: Position)
+record Wire(from: Label, to: Label)
+
+interface Net {
+  def agent(name: String, pp: Label, aux: List[Label], pos: Position): Unit
+  def wire(from: Label, to: Label): Unit
+}

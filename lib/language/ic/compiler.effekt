@@ -1,0 +1,11 @@
+import lib/net/net
+import lib/language/ic/term
+import lib/language/ic/parser
+import lib/language/ic/checker
+import lib/language/ic/netter
+
+def compile!(): Unit / { Exception[WrongFormat], read[Char], emit[Agent], emit[Wire] } = {
+  with source[Constructor] { parse!() }
+  with source[Constructor] { check!() }
+  net!()
+}

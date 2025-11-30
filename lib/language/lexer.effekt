@@ -61,7 +61,7 @@ val tokenDesriptors = [
   TokenRx(Number(), "^[0-9]+".regex),
   TokenRx(Ident(),  "^[a-zA-Z]+[a-zA-Z0-9]*".regex),
   TokenRx(Punct(),  "^[+-=,.()\\[\\]{}:]".regex),
-  TokenRx(Space(),  "^[ \t\n]+".regex)
+  TokenRx(Space(),  "^[ \t\r\n]+".regex)
 ]
 
 def lexer[R](in: String) { prog: => R / Lexer } : R / LexerError = {

@@ -1,13 +1,13 @@
-type Polarization { Pos(); Neg() }
+import lib/net/net
 
-record Port(name: String, pol: Polarization)
+type Polarity { Pos(); Neg() }
 
-type Kind { LightTriangle(); DarkTriangle(); LightCircle(); DarkCircle() }
+record Port(name: String, pol: Polarity)
 
 record Constructor(pp: Port, aux: List[Port], kind: Kind)
 record Program(ctors: List[Constructor])
 
-def show(pol: Polarization) = pol match {
+def show(pol: Polarity) = pol match {
   case Pos() => "+"
   case Neg() => "-"
 }

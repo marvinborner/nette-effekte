@@ -1,0 +1,30 @@
+import map
+
+import lib/language/ic/term
+import lib/net/net
+
+def net!(): Unit / { Exception[WrongFormat], read[Constructor], emit[Agent], emit[Wire] } = {
+  var ids: Label = 0
+  var map: Map[String, Label] = emptyGeneric()
+
+  def uniqueMatch(port: Port) = {
+    map.get(port.name) match {
+      case Some(id) =>
+        if (port.pol is Pos()) do emit(Wire(id + 1, id))
+        if (port.pol is Neg()) do emit(Wire(id, id + 1))
+        map = map.delete(port.name)
+        id + 1
+      case None() =>
+        map = map.put(port.name, ids)
+        ids = ids + 2
+        ids - 2
+    }
+  }
+
+  exhaustively {
+    val ctor = do read()
+    val pp_ = ctor.pp.uniqueMatch()
+    val aux_ = ctor.aux.map { p => p.uniqueMatch() }
+    do emit(Agent(ctor.pp.name, pp_, aux_, ctor.kind, Position(0.0, 0.0)))
+  }
+}

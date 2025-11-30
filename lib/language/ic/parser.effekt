@@ -1,9 +1,9 @@
+import lib/net/net
 import lib/language/ic/term
-
 import lib/language/lexer
 import lib/language/parser
 
-def parsePolarization(): Polarization / Parser = or {
+def parsePolarity(): Polarity / Parser = or {
   punct("+")
   Pos()
 } {
@@ -13,7 +13,7 @@ def parsePolarization(): Polarization / Parser = or {
 
 def parsePort(): Port / Parser = {
   val name = ident()
-  val pol = parsePolarization()
+  val pol = parsePolarity()
   Port(name, pol)
 }
 
@@ -29,12 +29,10 @@ def parseConstructor(): Constructor / Parser = {
   Constructor(pp, aux, LightTriangle())
 }
 
-def parseProgram(): Program / Parser = {
-  val ctors: List[Constructor] = some { parseConstructor() }
-  Program(ctors)
-}
+def parseProgram(): List[Constructor] / Parser = some { parseConstructor() }
 
-def parse(input: String): Program / Exception[WrongFormat] =
+// TODO: make this stream-based?
+def parseS(input: String): List[Constructor] / Exception[WrongFormat] =
   try { lexer(input) { skipWhitespace { Success(parseProgram()) }}}
   with Nondet {
     def alt() = resume(true) match {
@@ -45,3 +43,8 @@ def parse(input: String): Program / Exception[WrongFormat] =
   }
   with LexerError { (msg, pos) => Error(WrongFormat(), "${pos.show}: ${msg}") }
   .value
+
+// TODO: also support parsing rules (emit[Rule])
+//   "! f-(a-, k+) <> f+(x+, b-) ~> [a-/x-][k-/b-]"
+def parse!(): Unit / { Exception[WrongFormat], read[Char], emit[Constructor] } =
+  parseS(collect { exhaustively { do emit(do read[Char]()) } }).each

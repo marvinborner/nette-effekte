@@ -1,0 +1,19 @@
+import lib/net/net
+
+record NetState()
+
+def emptyNetState() = NetState()
+
+def loadNet { prog: => Unit / { emit[Wire], emit[Agent] } }: NetState = {
+  try exhaustively { prog() }
+  with emit[Wire] { wire =>
+    println(wire.from)
+    println(wire.to)
+    resume(())
+  }
+  with emit[Agent] { agent =>
+    println(inspect(agent))
+    resume(())
+  }
+  emptyNetState()
+}
