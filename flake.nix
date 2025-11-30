@@ -20,10 +20,10 @@
         effekt-lib = effekt-nix.lib.${system};
 
         ## Project configuration
-        pname = "nette-effekte";           # package name
-        version = "0.1.0";                 # package version
-        mainFile = "app/main.effekt";      # relative path to entrypoint (as a string)
-        testFiles = [ "app/test.effekt" ]; # relative paths to tests (as a string)
+        pname = "nette-effekte";            # package name
+        version = "0.1.0";                  # package version
+        mainFile = "app/main.effekt";       # relative path to entrypoint (as a string)
+        testFiles = [ "test/main.effekt" ]; # relative paths to tests (as a string)
 
         ## Effekt configuration
         effektConfig = {
