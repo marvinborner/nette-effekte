@@ -6,7 +6,7 @@ interface Geometry {
 }
 
 record Arrow(from: Vector, to: Vector)
-record Triangle(center: Vector, height: Double)
+record Triangle(center: Vector, height: Double, arity: Int)
 
 def dispatch(arrow: Arrow) = do arrow(arrow.from, arrow.to)
 def dispatch(triangle: Triangle) = do triangle(triangle.center, triangle.height)
@@ -16,7 +16,7 @@ def principal(triangle: Triangle): Vector = {
 }
 
 def auxiliary(triangle: Triangle, index: Int): Vector = {
-  val width = 50.0
-  val step = 10.0 // TODO
+  val width = 50.0 // TODO
+  val step = width / triangle.arity.toDouble
   Vector(triangle.center.x - width + index.toDouble * step, triangle.center.y - triangle.height)
 }

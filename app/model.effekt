@@ -66,9 +66,10 @@ def setSource(state: EvaluatorState, s: String): EvaluatorState = state match {
 }
 
 def render(state: EvaluatorState): EvaluatorState =
+  with on[MissingValue].panic // should be impossibly by now
   with on[WrongFormat].report(state)
   with returning::source[Char, EvaluatorState] {
-    state.sources.getOrElse(state.mode) { panic("invalid mode") }()
+    (state.sources.get(state.mode).value)()
   }
   state match {
     case EvaluatorState(InteractionCalculus(), sources, net, errors) => {
@@ -79,6 +80,8 @@ def render(state: EvaluatorState): EvaluatorState =
 }
 
 def model[R] { prog: => R / Model }: R / State[EvaluatorState] =
+  with on[MissingValue].panic // should be impossibly by now
+
   try { prog() }
   with Model {
     def render() = resume(modifyState { st => st.render })
@@ -90,7 +93,7 @@ def model[R] { prog: => R / Model }: R / State[EvaluatorState] =
     def getMode() = resume((do getState()).mode)
     def getSource(mode) = {
       val state = do getState()
-      val source = state.sources.getOrElse(mode) { panic("invalid mode") }
+      val source = state.sources.get(mode).value
       resume(source)
     }
     def getErrors() = resume((do getState()).errors)
