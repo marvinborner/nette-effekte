@@ -1,0 +1,8 @@
+// to be potentially added to Effekt's standard library
+
+def size[A] { s: => Unit / emit[A] }: Int = {
+  var size = 0
+  try s()
+  with emit[A] { _ => size = size + 1}
+  size
+}

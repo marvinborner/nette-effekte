@@ -7,16 +7,37 @@ type Label = Int
 record Agent(name: String, pp: Label, aux: List[Label], kind: Kind, pos: Vector)
 record Wire(from: Label, to: Label)
 
-// interface Net {
-//   def agent(name: String, pp: Label, aux: List[Label], pos: Position): Unit
-//   def wire(from: Label, to: Label): Unit
-// }
+def mapPosition(agent: Agent) { f: Vector => Vector }: Agent = agent match {
+  case Agent(name, pp, aux, kind, pos) => Agent(name, pp, aux, kind, f(pos))
+}
 
 effect NetStream = { emit[Wire], emit[Agent] }
 type Net = => Unit / NetStream at {}
+record UnifiedNet(wires: List[Wire], agents: List[Agent])
+
+def attachedTo(agent: Agent, wire: Wire) =
+  wire.from == agent.pp || agent.aux.contains(wire.from) { (a, b) => a == b }
+  || wire.to == agent.pp || agent.aux.contains(wire.to)   { (a, b) => a == b }
+
+def attachedWires(agent: Agent): Unit / { emit[Wire], read[Wire] } = {
+  with exhaustively
+  val wire = do read[Wire]
+  // if (wire.from == agent.pp || agent.aux.contains(wire.from) { (a, b) => a == b }
+  //    || wire.to == agent.pp || agent.aux.contains(wire.to)   { (a, b) => a == b })
+  if (agent.attachedTo(wire))
+    do emit(wire)
+}
+
+def agentPositions(): Unit / { read[Agent], emit[Vector] } =
+  stream::map[Agent, Vector] { agent => agent.pos } { exhaustively { do emit[Agent](do read[Agent]()) } }
+
+def collect { prog: => Unit / NetStream }: UnifiedNet = {
+  val tup: Tuple2[List[Wire], List[Agent]] = returning::collect { collect { prog() } }
+  UnifiedNet(tup.first, tup.second)
+}
 
 // TODO: is there a better way to box the streams that doesn't require collecting them first? Maybe using regions?
 def collect { prog: => Unit / NetStream }: Net = {
-  val both: Tuple2[List[Wire], List[Agent]] = returning::collect { collect { prog() } }
-  box { both.first.each; both.second.each }
+  val both: UnifiedNet = collect { prog() }
+  box { both.wires.each; both.agents.each }
 }

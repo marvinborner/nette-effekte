@@ -1,4 +1,60 @@
+// --- vector ---
+// values/formulae based on the Haskell GraphRewriting library by Jan Rochel (MIT)
+
 record Vector(x: Double, y: Double)
+
+def infixAdd(v1: Vector, v2: Vector) = Vector(v1.x + v2.x, v1.y + v2.y)
+def infixSub(v1: Vector, v2: Vector) = Vector(v1.x - v2.x, v1.y - v2.y)
+def infixMul(v: Vector, s: Double) = Vector(v.x * s, v.y * s)
+def infixDiv(v: Vector, s: Double) = Vector(v.x / s, v.y / s)
+
+def dot(v1: Vector, v2: Vector) = (v1.x * v2.x) + (v1.y * v2.y)
+def magnitude(v: Vector) = sqrt(v.dot(v))
+def normalize(v: Vector) = {
+  val mag = v.magnitude
+  if (mag < 0.000000000001) v
+  else v * (1.0 / mag)
+}
+def rotate(v: Vector, a: Double) = Vector(v.x * cos(a) - v.y * sin(a), v.x * sin(a) + v.y * cos(a))
+
+// [-pi,pi]
+type Angle = Double
+
+// --- force ---
+// values/formulae based on the Haskell GraphRewriting library by Jan Rochel (MIT)
+// adapted to streams and effects
+
+// running average
+def average { f: => Unit / emit[Vector] }: Vector = {
+  var s: Option[Vector] = None()
+  for { f() } { v1 =>
+    s = Some(s match {
+      case Some(v2) => (v1 + v2) / 2.0
+      case None()   => v1
+    })
+  }
+  s.getOrElse { Vector(0.0, 0.0) }
+}
+
+interface Force {
+  def origin(): Vector
+  def strength(x: Double): Double
+}
+
+// TODO: 'fsum [] = pos' case?
+def forceSum { fs: => Unit / { emit[Vector], Force } }: Vector / Force =
+  average { fs() }
+
+def force(f: Vector): Vector / Force =
+  do origin() + f.normalize * do strength(f.magnitude)
+
+def repulsion(from: Vector, position: Vector): Vector / Force =
+  force(from - position)
+
+def attraction(towards: Vector, position: Vector): Vector / Force =
+  force(towards - position)
+
+// --- geometry ---
 
 interface Geometry {
   def arrow(from: Vector, to: Vector): Unit

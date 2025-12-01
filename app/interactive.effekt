@@ -3,6 +3,7 @@ import map
 import lib/net/net
 import lib/ui/geometry
 import lib/ui/canvas
+import lib/net/layout
 
 record NetState(net: Net, canvas: Canvas)
 
@@ -27,7 +28,7 @@ def render(state: NetState): Unit / Geometry = {
     }
   }
 
-  try (state.net)()
+  try layout { (state.net)() }
   with emit[Agent] { agent =>
     val triangle = Triangle(agent.pos, 100.0, agent.aux.size)
     agent.pp.resolve(principal(triangle))
@@ -52,6 +53,6 @@ def render(state: NetState): NetState = {
 }
 
 def loadNet { prog: => Unit / NetStream }: NetState = {
-  val net = collect { prog() }
+  val net: Net = collect { prog() } // TODO: do not collect stream
   NetState(net, empty())
 }

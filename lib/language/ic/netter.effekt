@@ -4,6 +4,10 @@ import lib/ui/geometry
 import lib/language/ic/term
 import lib/net/net
 
+def circularLayout(k: Int): Vector = {
+  Vector(k.mod(3).toDouble, k.mod(3).toDouble).rotate(k.toDouble)
+}
+
 def net!(): Unit / { Exception[WrongFormat], read[Constructor], NetStream } = {
   var ids: Label = 0
   var map: Map[String, Label] = emptyGeneric()
@@ -22,10 +26,12 @@ def net!(): Unit / { Exception[WrongFormat], read[Constructor], NetStream } = {
     }
   }
 
+  var k = 0
   exhaustively {
     val ctor = do read()
     val pp_ = ctor.pp.uniqueMatch()
     val aux_ = ctor.aux.map { p => p.uniqueMatch() }
-    do emit(Agent(ctor.pp.name, pp_, aux_, ctor.kind, Vector(0.0, 0.0)))
+    do emit(Agent(ctor.pp.name, pp_, aux_, ctor.kind, circularLayout(k)))
+    k = k + 1
   }
 }

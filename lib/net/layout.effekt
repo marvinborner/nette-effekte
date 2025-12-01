@@ -1,0 +1,84 @@
+// values/formulae based on the Haskell GraphRewriting library by Jan Rochel (MIT)
+// adapted to streams and effects
+
+import lib/ui/geometry
+import lib/net/net
+
+type Strength = Double => Double at {}
+
+/// Layout/RotPortSpec
+// angularMomentum = LONG
+
+def centralGravitation(agent: Agent): Vector / Force =
+  Vector(0.0, 0.0).attraction(agent.pos)
+
+def coulombForce(agent: Agent): Vector / { Force, read[Agent] } = {
+  with forceSum
+  with source[Vector] { agentPositions() } // TODO: tee read[Agent]!!
+
+  with exhaustively
+  do emit(repulsion(do read[Vector], agent.pos))
+}
+
+def geometry(wire: Wire): Tuple2[Vector, Vector] / read[Agent] = {
+  <> // based on the position of both agents its connected to
+  // TODO: when "early returning" when agent is found, remember to exhaustively read all other agents (because they're potentially tee-d)
+}
+
+def springTargets(wire: Wire, agent: Agent, length: Double): Unit / { emit[Vector], read[Agent] } = {
+  val (pos, direction) = wire.geometry() // TODO: tee read[Agent]!!
+  do emit((pos + direction.normalize) * length)
+}
+
+def adverseAgents(agent: Agent, wire: Wire): Unit / { emit[Agent], read[Agent] } = {
+  with exhaustively
+  val a = do read()
+  if (a.pp != agent.pp && a.attachedTo(wire)) do emit(a)
+}
+
+def wireForce(agent: Agent, length: Double) { f: => Unit / emit[Wire] }: Unit / { Force, read[Agent], emit[Vector] } = {
+  for { f() } { wire =>
+    do emit(forceSum {
+      for {
+        for { agent.adverseAgents(wire) } { a => // TODO: tee read[Agent]!!
+          wire.springTargets(a, length) } // TODO: tee read[Agent]!!
+      } { adverseTarget =>
+        for { wire.springTargets(agent, length) } { agentTarget => // TODO: tee read[Agent]!!
+          do emit(attraction(adverseTarget, agentTarget))
+        }
+      }
+    })
+  }
+}
+
+def springForce(agent: Agent, length: Double): Vector / { Force, read[Wire], read[Agent] } =
+  average { agent.wireForce(length) { agent.attachedWires } } // TODO: tee read[Wire], read[Agent](?)!!
+
+def withForce(position: Vector) { f: => Vector / { Force, read[Agent] } } { s: Double => Double }: Vector / { Force, read[Agent] } =
+  try f()
+  with Force {
+    def origin() = resume(position)
+    def strength(x) = resume(s(x))
+  }
+
+def layoutStep(agent: Agent): Agent / { Force, read[Agent], read[Wire] } = {
+  val cf = withForce(agent.pos) { agent.coulombForce } {
+    x => 0.2 * min(10.0, 100.0 / (pow(x, 2) + 0.1)) }
+  val cgf = withForce(cf) { agent.centralGravitation } {
+    x => 0.2 * min(10.0, x * 0.01) }
+  val sf = withForce(cgf) { agent.springForce(1.5) } {
+    x => 0.2 * min(10.0, x * 0.9) }
+
+  agent
+  // angularMomentum(position)
+}
+
+def layout { net: => Unit / NetStream }: Unit / NetStream = {
+  try net()
+  with emit[Agent] { agent =>
+    <>
+  }
+  with emit[Wire] { wire =>
+    <>
+  }
+}
