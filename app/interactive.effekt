@@ -37,7 +37,7 @@ def render(state: NetState): Unit / Geometry = {
   }
   with emit[Wire] { wire =>
     val from = positions.get(wire.from).map { pos => Resolved(pos) }.getOrElse { Unresolved(wire.from) }
-    val to = positions.get(wire.to).map { pos => Resolved(pos) }.getOrElse { Unresolved(wire.to) }
+    val to   = positions.get(wire.to).map   { pos => Resolved(pos) }.getOrElse { Unresolved(wire.to) }
     resume((wires = Cons((from, to), wires)))
   }
 
