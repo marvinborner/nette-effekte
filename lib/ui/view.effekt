@@ -4,11 +4,13 @@ import ref
 import string
 import test
 
-import lib/ui/model
 import lib/ui/node
+import lib/ui/model
+import lib/ui/canvas
 
 type Html[Ev] {
   Text(content: String);
+  Canvas(classes: List[String], handler: List[EventHandler[Ev]], canvas: Canvas)
   Element(tag: String, classes: List[String], handler: List[EventHandler[Ev]], children: List[Html[Ev]], value: String)
 }
 
@@ -19,6 +21,7 @@ type Dirtiness { Keep(); Redraw() }
 type EventHandler[Ev] {
   OnClick(handler: Ev, dirty: Dirtiness)
   OnKeyUp(handler: String => Ev at {}, dirty: Dirtiness)
+  OnTick(handler: Ev, dirty: Dirtiness)
 }
 
 extern type IdleDeadline
@@ -43,30 +46,47 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
 
     def send(ev: Ev): Unit = inbox.set(Cons(ev, inbox.get))
 
+    def handleEvent(element: Node, handler: List[EventHandler[Ev]]) = {
+      handler.foreach {
+        case OnClick(ev, dirtiness) =>
+          element.onClick(box {
+            send(ev);
+            if (dirtiness is Redraw()) dirty.set(true)
+          })
+        case OnKeyUp(ev, dirtiness) =>
+          element.onKeyUp(box { key =>
+            send(ev(element.value))
+            if (dirtiness is Redraw()) dirty.set(true)
+          })
+        case OnTick(ev, dirtiness) =>
+          // TODO: el.onTick: use setInterval as long as element exists (based on MutationObserver)
+          element.onClick(box {
+            send(ev);
+            if (dirtiness is Redraw()) dirty.set(true)
+          })
+      }
+    }
+
     // renders the Node to the DOM
     def render(html: Html[Ev]): Node = html match {
       case Text(content) => createTextNode(content)
       case Element(tag, classes, handler, children, value) =>
         val el = createElement(tag)
         el.setValue(value)
+        el.handleEvent(handler)
         classes.foreach { class => el.addClass(class); () }
-        handler.foreach {
-          case OnClick(ev, dirtiness) =>
-            el.onClick(box {
-              send(ev);
-              if (dirtiness is Redraw()) dirty.set(true)
-            })
-          case OnKeyUp(ev, dirtiness) =>
-            el.onKeyUp(box { key =>
-              send(ev(el.value))
-              if (dirtiness is Redraw()) dirty.set(true)
-            })
-        }
         children.foreach { child =>
           el.appendChild(child.render)
           ()
         }
         el
+      case Canvas(classes, handler, canvas) => {
+        val el = createElement("canvas")
+        canvas.applyTo(el)
+        el.handleEvent(handler)
+        classes.foreach { class => el.addClass(class); () }
+        el
+      }
     }
 
     // renders the app with the current state

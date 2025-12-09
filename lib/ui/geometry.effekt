@@ -1,21 +1,4 @@
-// --- vector ---
-// values/formulae based on the Haskell GraphRewriting library by Jan Rochel (MIT)
-
-record Vector(x: Double, y: Double)
-
-def infixAdd(v1: Vector, v2: Vector) = Vector(v1.x + v2.x, v1.y + v2.y)
-def infixSub(v1: Vector, v2: Vector) = Vector(v1.x - v2.x, v1.y - v2.y)
-def infixMul(v: Vector, s: Double) = Vector(v.x * s, v.y * s)
-def infixDiv(v: Vector, s: Double) = Vector(v.x / s, v.y / s)
-
-def dot(v1: Vector, v2: Vector) = (v1.x * v2.x) + (v1.y * v2.y)
-def magnitude(v: Vector) = sqrt(v.dot(v))
-def normalize(v: Vector) = {
-  val mag = v.magnitude
-  if (mag < 0.000000000001) v
-  else v * (1.0 / mag)
-}
-def rotate(v: Vector, a: Double) = Vector(v.x * cos(a) - v.y * sin(a), v.x * sin(a) + v.y * cos(a))
+import lib/ui/vector
 
 // [-pi,pi]
 type Angle = Double
@@ -56,16 +39,32 @@ def attraction(towards: Vector, position: Vector): Vector / Force =
 
 // --- geometry ---
 
-interface Geometry {
-  def arrow(from: Vector, to: Vector): Unit
-  def triangle(center: Vector, size: Double): Unit
+record Arrow(from: Vector, to: Vector)
+record Triangle(center: Vector, width: Double, arity: Int)
+
+effect Draw = { emit[Arrow], emit[Triangle] }
+record ReifiedGeometry(arrows: List[Arrow], triangles: List[Triangle])
+type Geometry = => Unit / Draw at {}
+
+def empty(): Geometry = box{}
+
+def draw(geometry: Geometry): Unit / Draw = {
+  geometry()
 }
 
-record Arrow(from: Vector, to: Vector)
-record Triangle(center: Vector, height: Double, arity: Int)
+def collect { draw: => Unit / Draw }: ReifiedGeometry = {
+  val tup: (List[Arrow], List[Triangle]) = returning::collect { collect { draw() } }
+  ReifiedGeometry(tup.first, tup.second)
+}
 
-def dispatch(arrow: Arrow) = do arrow(arrow.from, arrow.to)
-def dispatch(triangle: Triangle) = do triangle(triangle.center, triangle.height)
+def collect { draw: => Unit / Draw }: Geometry = {
+  val both: ReifiedGeometry = collect { draw() }
+  box { both.arrows.each; both.triangles.each }
+}
+
+def height(triangle: Triangle): Double =
+  triangle.width * (3.0.sqrt / 2.0)
+
 
 def principal(triangle: Triangle): Vector = {
   Vector(triangle.center.x, triangle.center.y + triangle.height)

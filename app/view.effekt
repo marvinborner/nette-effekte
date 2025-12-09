@@ -1,5 +1,6 @@
 import lib/ui/view
 import lib/ui/node
+import lib/ui/canvas
 
 import app/model
 
@@ -14,8 +15,8 @@ def div[Ev](handler: List[EventHandler[Ev]], classes: List[String], children: Li
 def div[Ev](classes: List[String], children: List[Html[Ev]]): Html[Ev] =
   div([], classes, children)
 
-def canvas[Ev](handler: List[EventHandler[Ev]], classes: List[String]): Html[Ev] =
-  Element("canvas", classes, handler, [], "")
+def canvas[Ev](handler: List[EventHandler[Ev]], classes: List[String], canvas: Canvas): Html[Ev] =
+  Canvas(classes, handler, canvas)
 
 def textarea[Ev](handler: List[EventHandler[Ev]], classes: List[String], text: TextStream): Html[Ev] =
   Element("textarea", classes, handler, [], collect { text() })
@@ -24,18 +25,16 @@ def textarea[Ev](handler: List[EventHandler[Ev]], classes: List[String], text: T
 
 type Event {
   Render();
-  Step();
+  StepReduction();
   NextMode();
-  HandleCanvas();
   SetSource(s: String);
 }
 
 def dispatch(msg: Event) = msg match {
-  case Render()       => do render()
-  case Step()         => do step()
-  case NextMode()     => do nextMode()
-  case HandleCanvas() => do handleCanvas()
-  case SetSource(s)   => do setSource(s)
+  case Render()        => do render()
+  case StepReduction() => do stepReduction()
+  case NextMode()      => do nextMode()
+  case SetSource(s)    => do setSource(s)
 }
 
 def view(): Html[Event] / Model = {
@@ -44,11 +43,11 @@ def view(): Html[Event] / Model = {
       text("Nette Effekte"),
       button([ OnClick(NextMode(), Redraw()) ], [], [ text("Current Mode: " ++ show(do getMode())) ]),
       button([ OnClick(Render(), Redraw())], [], [ text("Render") ]),
-      button([ OnClick(Step(), Redraw()) ], [], [ text("Step") ]),
+      button([ OnClick(StepReduction(), Redraw()) ], [], [ text("Step") ]),
     ]),
     div([ "split" ], [
       textarea([ OnKeyUp(box { s => SetSource(s) }, Keep()) ], ["left", "code"], do getSource(do getMode())),
-      canvas([ OnClick(HandleCanvas(), Redraw()) ], ["right", "inet"]),
+      canvas([ OnTick(Render(), Redraw()) ], ["right", "inet"], do getCanvas()),
     ]),
     div([ "errors" ], [ text(do getErrors()) ]),
   ])

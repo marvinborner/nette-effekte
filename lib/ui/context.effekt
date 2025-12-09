@@ -1,0 +1,24 @@
+import lib/ui/node
+
+extern type Context
+
+extern def getContext(node: Node, dim: String) at io: Context =
+  jsWeb "(${node}.getContext(${dim}))"
+
+extern def beginPath(ctx: Context) at io: Unit =
+  jsWeb "(${ctx}.beginPath())"
+
+extern def closePath(ctx: Context) at io: Unit =
+  jsWeb "(${ctx}.closePath())"
+
+extern def stroke(ctx: Context) at io: Unit =
+  jsWeb "(${ctx}.stroke())"
+
+extern def moveTo(ctx: Context, x: Double, y: Double) at io: Unit =
+  jsWeb "(${ctx}.moveTo(${x}, ${y}))"
+
+extern def lineTo(ctx: Context, x: Double, y: Double) at io: Unit =
+  jsWeb "(${ctx}.lineTo(${x}, ${y}))"
+
+extern def translate(ctx: Context, x: Double, y: Double) at io: Unit =
+  jsWeb "(${ctx}.translate(${x}, ${y}))"

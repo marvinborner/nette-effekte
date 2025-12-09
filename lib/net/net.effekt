@@ -1,4 +1,5 @@
 import lib/ui/geometry
+import lib/ui/vector
 
 type Kind { LightTriangle(); DarkTriangle(); LightCircle(); DarkCircle() }
 
@@ -40,12 +41,28 @@ def agentPositions() { agents: => Unit / AgentStream }: Unit / emit[Vector] =
     do emit(agent.pos)
   }
 
+// TODO: reuse returning::collect from below
 def collect { prog: => Unit / NetStream }: ReifiedNet = {
   val tup: Tuple2[List[Wire], List[Agent]] = returning::collect { collect { prog() } }
   ReifiedNet(tup.first, tup.second)
 }
 
+// TODO: reuse returning::collect from below
 def collect { prog: => Unit / NetStream }: Net = {
   val both: ReifiedNet = collect { prog() }
   box { both.wires.each; both.agents.each }
+}
+
+// TODO: make prettier
+namespace returning {
+  def collect[R] { prog: => R / NetStream }: (R, ReifiedNet) = {
+    val tup = list::returning::collect[Agent, (R, List[Wire])] {
+      list::returning::collect[Wire, R] { prog() } }
+    (tup.first.first, ReifiedNet(tup.first.second, tup.second))
+  }
+
+  def collect[R] { prog: => R / NetStream }: (R, Net) = {
+    val both: (R, ReifiedNet) = collect { prog() }
+    (both.first, box { both.second.wires.each; both.second.agents.each })
+  }
 }

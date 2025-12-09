@@ -2,6 +2,7 @@
 // adapted to streams and effects
 
 import lib/ui/geometry
+import lib/ui/vector
 import lib/net/net
 
 def centralGravitation(agent: Agent): Vector / Force =
@@ -68,6 +69,6 @@ def layoutStep(agent: Agent) { net: => Unit / NetStream }: Agent = {
 
 def layout { net: => Unit / NetStream }: Unit / NetStream = {
   for[Agent] { net() } { agent =>
-    do emit(layoutStep(agent) {net})
+    do emit(agent.layoutStep {net})
   }
 }

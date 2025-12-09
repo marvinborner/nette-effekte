@@ -1,0 +1,17 @@
+// values/formulae based on the Haskell GraphRewriting library by Jan Rochel (MIT)
+
+record Vector(x: Double, y: Double)
+
+def infixAdd(v1: Vector, v2: Vector) = Vector(v1.x + v2.x, v1.y + v2.y)
+def infixSub(v1: Vector, v2: Vector) = Vector(v1.x - v2.x, v1.y - v2.y)
+def infixMul(v: Vector, s: Double) = Vector(v.x * s, v.y * s)
+def infixDiv(v: Vector, s: Double) = Vector(v.x / s, v.y / s)
+
+def dot(v1: Vector, v2: Vector) = (v1.x * v2.x) + (v1.y * v2.y)
+def magnitude(v: Vector) = sqrt(v.dot(v))
+def normalize(v: Vector) = {
+  val mag = v.magnitude
+  if (mag < 0.000000000001) v
+  else v * (1.0 / mag)
+}
+def rotate(v: Vector, a: Double) = Vector(v.x * cos(a) - v.y * sin(a), v.x * sin(a) + v.y * cos(a))

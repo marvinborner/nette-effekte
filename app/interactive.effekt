@@ -2,6 +2,7 @@ import map
 
 import lib/net/net
 import lib/ui/geometry
+import lib/ui/vector
 import lib/ui/canvas
 import lib/net/layout
 
@@ -17,7 +18,7 @@ def resolveWire(resolver: WireResolver, label: Label, position: Vector): WireRes
   case _ => resolver
 }
 
-def render(state: NetState): Unit / Geometry = {
+def render(state: NetState): Unit / { Draw, NetStream } = {
   var positions: Map[Label, Vector] = emptyGeneric()
   var wires: List[Tuple2[WireResolver, WireResolver]] = Nil()
 
@@ -30,29 +31,34 @@ def render(state: NetState): Unit / Geometry = {
 
   try layout { (state.net)() }
   with emit[Agent] { agent =>
+    do emit(agent)
     val triangle = Triangle(agent.pos, 100.0, agent.aux.size)
-    agent.pp.resolve(principal(triangle))
-    agent.aux.foreachIndex { (i, port) => port.resolve(auxiliary(triangle, i)) }
-    resume(triangle.dispatch)
+    agent.pp.resolve(triangle.principal)
+    agent.aux.foreachIndex { (i, port) => port.resolve(triangle.auxiliary(i)) }
+    resume(do emit(triangle))
   }
   with emit[Wire] { wire =>
+    do emit(wire)
     val from = positions.get(wire.from).map { pos => Resolved(pos) }.getOrElse { Unresolved(wire.from) }
     val to   = positions.get(wire.to).map   { pos => Resolved(pos) }.getOrElse { Unresolved(wire.to) }
     resume((wires = Cons((from, to), wires)))
   }
 
   wires.foreach {
-    case (Resolved(from), Resolved(to)) => do arrow(from, to)
+    case (Resolved(from), Resolved(to)) => do emit(Arrow(from, to))
     case _ => panic("unresolved wires (should be impossible by now)")
   }
 }
 
 def render(state: NetState): NetState = {
-  val canvas = applyGeometry { render(state) }
-  NetState(state.net, canvas)
+  val t: (Canvas, Net) = returning::collect {
+    val canvas = state.canvas.draw { state.render() }
+    canvas
+  }
+  NetState(t.second, t.first)
 }
 
 def loadNet { prog: => Unit / NetStream }: NetState = {
-  val net: Net = collect { prog() } // TODO: do not collect stream
+  val net: Net = collect { prog() }
   NetState(net, empty())
 }

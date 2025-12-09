@@ -1,6 +1,7 @@
 import map
 
 import lib/ui/geometry
+import lib/ui/vector
 import lib/language/ic/term
 import lib/net/net
 
@@ -31,7 +32,8 @@ def net!(): Unit / { Exception[WrongFormat], read[Constructor], NetStream } = {
     val ctor = do read()
     val pp_ = ctor.pp.uniqueMatch()
     val aux_ = ctor.aux.map { p => p.uniqueMatch() }
-    do emit(Agent(ctor.pp.name, pp_, aux_, ctor.kind, circularLayout(k)))
+    // do emit(Agent(ctor.pp.name, pp_, aux_, ctor.kind, circularLayout(k)))
+    do emit(Agent(ctor.pp.name, pp_, aux_, ctor.kind, Vector(0.0, 0.0)))
     k = k + 1
   }
 }

@@ -4,6 +4,7 @@ import app/interactive
 import lib/net/net
 
 import lib/ui/model
+import lib/ui/canvas
 import lib/language/ic/parser
 import lib/language/ic/compiler
 
@@ -16,13 +17,14 @@ record EvaluatorState(mode: Mode, sources: Map[Mode, TextStream], net: NetState,
 
 interface Model {
   def render(): Unit
-  def step(): Unit
+  def stepReduction(): Unit
   def nextMode(): Unit
   def handleCanvas(): Unit
   def setSource(s: String): Unit
 
   def getMode(): Mode
   def getSource(mode: Mode): TextStream
+  def getCanvas(): Canvas
   def getErrors(): String
 }
 
@@ -65,6 +67,12 @@ def setSource(state: EvaluatorState, s: String): EvaluatorState = state match {
   }
 }
 
+def stepAnimation(state: EvaluatorState): EvaluatorState = state match {
+  case EvaluatorState(mode, sources, net, errors) => {
+    EvaluatorState(mode, sources, net.render(), errors)
+  }
+}
+
 def render(state: EvaluatorState): EvaluatorState =
   with on[MissingValue].panic // should be impossibly by now
   with on[WrongFormat].report(state)
@@ -85,7 +93,7 @@ def model[R] { prog: => R / Model }: R / State[EvaluatorState] =
   try { prog() }
   with Model {
     def render() = resume(modifyState { st => st.render })
-    def step() = <>
+    def stepReduction() = <>
     def nextMode() = resume(modifyState { st => st.nextMode })
     def setSource(c) = resume(modifyState { st => st.setSource(c) })
     def handleCanvas() = <>
@@ -97,4 +105,5 @@ def model[R] { prog: => R / Model }: R / State[EvaluatorState] =
       resume(source)
     }
     def getErrors() = resume((do getState()).errors)
+    def getCanvas() = resume((do getState()).net.canvas)
   }
