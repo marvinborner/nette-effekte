@@ -58,7 +58,11 @@ def render(state: NetState): NetState = {
   NetState(t.second, t.first)
 }
 
-def loadNet { prog: => Unit / NetStream }: NetState = {
+def setCanvasSize(state: NetState, size: Vector): NetState = {
+  NetState(state.net, state.canvas.setCanvasSize(size)).render()
+}
+
+def load(state: NetState) { prog: => Unit / NetStream }: NetState = {
   val net: Net = collect { prog() }
-  NetState(net, empty())
+  NetState(net, state.canvas)
 }

@@ -5,7 +5,6 @@ import lib/ui/geometry
 
 record Canvas(geometry: Geometry, size: Vector, position: Vector, scale: Double)
 
-// TODO: determine size??
 def empty() = Canvas(empty(), Vector(100.0, 100.0), Vector(0.0, 0.0), 1.0)
 
 // "drawing" in the sense of storing in Canvas structure :)
@@ -14,9 +13,34 @@ def draw(canvas: Canvas) { draw: => Unit / Draw }: Canvas = {
   Canvas(geometry, canvas.size, canvas.position, canvas.scale)
 }
 
-// TODO: translate vectors to size+position+scale
+interface Relative {
+  def startTransform(ctx: Context): Unit
+  def endTransform(ctx: Context): Unit
+}
 
-def drawTriangle(ctx: Context, triangle: Triangle) = {
+def setCanvasSize(canvas: Canvas, size: Vector): Canvas = {
+  if (size.x == 0.0 || size.y == 0.0) canvas
+  else Canvas(canvas.geometry, size, canvas.position, canvas.scale)
+}
+
+def transforming(canvas: Canvas) { draw: => Unit / Relative } = {
+  try draw()
+  with Relative {
+    def startTransform(ctx: Context) = {
+      ctx.save()
+      ctx.translate(canvas.size.x / 2.0, canvas.size.y / 2.0)
+      ctx.scale(canvas.scale * pixelRatio, canvas.scale * pixelRatio)
+      ctx.translate(-1.0 * canvas.position.x, -1.0 * canvas.position.y)
+      resume(())
+    }
+    def endTransform(ctx: Context) = {
+      ctx.restore()
+      resume(())
+    }
+  }
+}
+
+def drawTriangle(ctx: Context, triangle: Triangle): Unit / Relative = {
   ctx.moveTo(0.0, -1.0 * triangle.height / 2.0)
   ctx.lineTo(-1.0 * triangle.width / 2.0, triangle.height / 2.0)
   ctx.lineTo(triangle.width / 2.0, triangle.height / 2.0)
@@ -24,20 +48,24 @@ def drawTriangle(ctx: Context, triangle: Triangle) = {
 }
 
 // from https://stackoverflow.com/a/8937497
-def drawTriangle(node: Node, triangle: Triangle) = {
+def drawTriangle(node: Node, triangle: Triangle): Unit / Relative = {
   val ctx = node.getContext("2d")
-  // TODO: ctx.save??
+  do startTransform(ctx)
+  // ctx.setStrokeStyle("#ff0000")
   ctx.translate(triangle.center.x, triangle.center.y)
   ctx.beginPath()
   ctx.drawTriangle(triangle) 
+  ctx.stroke()
+  ctx.fill()
   ctx.closePath()
+  do endTransform(ctx)
 }
 
 extern def atan2(x: Double, y: Double) at io: Double =
-  jsWeb "(Math.atan2(${x}, ${y}))"
+  jsWeb "Math.atan2(${x}, ${y})"
 
 // from https://stackoverflow.com/a/6333775
-def drawArrow(ctx: Context, arrow: Arrow) = {
+def drawArrow(ctx: Context, arrow: Arrow): Unit / Relative = {
   val head = 10.0
   val dx = arrow.to.x - arrow.from.x
   val dy = arrow.to.y - arrow.from.y
@@ -49,16 +77,23 @@ def drawArrow(ctx: Context, arrow: Arrow) = {
   ctx.lineTo(arrow.to.x - head * cos(angle + PI / 6.0), arrow.to.y - head * sin(angle + PI / 6.0));
 }
 
-def drawArrow(node: Node, arrow: Arrow) = {
+def drawArrow(node: Node, arrow: Arrow): Unit / Relative = {
   val ctx = node.getContext("2d")
+  do startTransform(ctx)
   ctx.beginPath()
   ctx.drawArrow(arrow)
   ctx.stroke()
+  do endTransform(ctx)
 }
 
 def applyTo(canvas: Canvas, node: Node): Unit / {} = {
+  with canvas.transforming
+
+  node.setSize(canvas.size.x * pixelRatio, canvas.size.y * pixelRatio)
+
   try canvas.geometry.draw()
   with emit[Arrow] { arrow =>
+    println("arrow: ${arrow.from.x.show},${arrow.from.y.show} to ${arrow.to.x.show},${arrow.to.y.show}")
     resume(node.drawArrow(arrow))
   }
   with emit[Triangle] { triangle =>

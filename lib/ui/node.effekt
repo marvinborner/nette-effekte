@@ -6,11 +6,26 @@ extern def getDocumentBody() at {}: Node = jsWeb "(document.body)"
 
 val documentBody: Node = getDocumentBody()
 
+extern def getPixelRatio() at {}: Double = jsWeb "(window.devicePixelRatio || 1)"
+
+val pixelRatio: Double = getPixelRatio()
+
 extern def onClick(node: Node, handler: () => Unit at {io, global}) at io: Unit =
   jsWeb "${node}.addEventListener('click', () => $effekt.runToplevel(${handler}))"
 
 extern def onKeyUp(node: Node, handler: String => Unit at {io, global}) at io: Unit =
   jsWeb "${node}.addEventListener('keyup', ({key}) => $effekt.runToplevel((ks, k) => ${handler}(key, ks, k)))"
+
+// let's just pretend we're using internet explorer :)
+extern def onResize(node: Node, handler: (Bool, Double, Double) => Unit at {io, global}) at io: Unit =
+  jsWeb """(function() {
+    let initialRun = true;
+    (new ResizeObserver(() => $effekt.runToplevel((ks, k) => {
+      const res = ${handler}(initialRun, ${node}.clientWidth, ${node}.clientHeight, ks, k);
+      initialRun = false;
+      return res;
+    }))).observe(${node});
+  })()"""
 
 extern def createElement(tag: String) at io: Node =
   jsWeb "document.createElement(${tag})"
@@ -29,6 +44,9 @@ extern def innerHTML(node: Node, contents: String) at io: Node =
 
 extern def setValue(node: Node, value: String) at io: Node =
   jsWeb "(function() { ${node}.value = ${value}; return ${node} })()"
+
+extern def setSize(node: Node, width: Double, height: Double) at io: Unit =
+  jsWeb "(function() { ${node}.width = ${width}; ${node}.height = ${height} })()"
 
 extern def addClass(node: Node, class: String) at io: Node =
   jsWeb "(function() { ${node}.classList.add(${class}) })()"

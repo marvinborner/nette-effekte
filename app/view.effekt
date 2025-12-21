@@ -1,6 +1,7 @@
 import lib/ui/view
 import lib/ui/node
 import lib/ui/canvas
+import lib/ui/vector
 
 import app/model
 
@@ -28,13 +29,15 @@ type Event {
   StepReduction();
   NextMode();
   SetSource(s: String);
+  SetCanvasSize(v: Vector);
 }
 
 def dispatch(msg: Event) = msg match {
-  case Render()        => do render()
-  case StepReduction() => do stepReduction()
-  case NextMode()      => do nextMode()
-  case SetSource(s)    => do setSource(s)
+  case Render()         => do render()
+  case StepReduction()  => do stepReduction()
+  case NextMode()       => do nextMode()
+  case SetSource(s)     => do setSource(s)
+  case SetCanvasSize(v) => do setCanvasSize(v)
 }
 
 def view(): Html[Event] / Model = {
@@ -47,7 +50,8 @@ def view(): Html[Event] / Model = {
     ]),
     div([ "split" ], [
       textarea([ OnKeyUp(box { s => SetSource(s) }, Keep()) ], ["left", "code"], do getSource(do getMode())),
-      canvas([ OnTick(Render(), Redraw()) ], ["right", "inet"], do getCanvas()),
+      canvas([ OnResize(box { v => SetCanvasSize(v) }, Keep()), OnClick(Render(), Redraw()) ], ["right", "inet"],
+        do getCanvas()),
     ]),
     div([ "errors" ], [ text(do getErrors()) ]),
   ])
@@ -65,6 +69,10 @@ def start() = {
     update = box { (ev) =>
       with model
       ev.dispatch()
+    },
+    tick = box {
+      with model
+      Render().dispatch()
     },
     view = box {
       with model

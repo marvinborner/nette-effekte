@@ -7,6 +7,7 @@ import test
 import lib/ui/node
 import lib/ui/model
 import lib/ui/canvas
+import lib/ui/vector
 
 type Html[Ev] {
   Text(content: String);
@@ -21,7 +22,7 @@ type Dirtiness { Keep(); Redraw() }
 type EventHandler[Ev] {
   OnClick(handler: Ev, dirty: Dirtiness)
   OnKeyUp(handler: String => Ev at {}, dirty: Dirtiness)
-  OnTick(handler: Ev, dirty: Dirtiness)
+  OnResize(handler: Vector => Ev at {}, dirty: Dirtiness)
 }
 
 extern type IdleDeadline
@@ -35,11 +36,12 @@ extern def style(path: String) at io: Unit =
 // TODO: this shouldn't need IO nor global!! (possibly because of .getOrElse(<>))
 record View[St, Ev](
   update: Ev => Unit / State[St] at {io,global},
+  tick: () => Unit / State[St] at {io,global},
   view: () => Html[Ev] / State[St] at {io,global}
 )
 
 def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
-  case View(update, view) =>
+  case View(update, tick, view) =>
     val inbox = ref[List[Ev]](Nil())
     val state = ref(init)
     val dirty = ref(true)
@@ -50,7 +52,7 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
       handler.foreach {
         case OnClick(ev, dirtiness) =>
           element.onClick(box {
-            send(ev);
+            send(ev)
             if (dirtiness is Redraw()) dirty.set(true)
           })
         case OnKeyUp(ev, dirtiness) =>
@@ -58,10 +60,9 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
             send(ev(element.value))
             if (dirtiness is Redraw()) dirty.set(true)
           })
-        case OnTick(ev, dirtiness) =>
-          // TODO: el.onTick: use setInterval as long as element exists (based on MutationObserver)
-          element.onClick(box {
-            send(ev);
+        case OnResize(ev, dirtiness) =>
+          element.onResize(box { (initial, width, height) =>
+            if (not(initial)) send(ev(Vector(width, height)))
             if (dirtiness is Redraw()) dirty.set(true)
           })
       }

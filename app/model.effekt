@@ -5,6 +5,7 @@ import lib/net/net
 
 import lib/ui/model
 import lib/ui/canvas
+import lib/ui/vector
 import lib/language/ic/parser
 import lib/language/ic/compiler
 
@@ -19,8 +20,8 @@ interface Model {
   def render(): Unit
   def stepReduction(): Unit
   def nextMode(): Unit
-  def handleCanvas(): Unit
   def setSource(s: String): Unit
+  def setCanvasSize(v: Vector): Unit
 
   def getMode(): Mode
   def getSource(mode: Mode): TextStream
@@ -67,6 +68,12 @@ def setSource(state: EvaluatorState, s: String): EvaluatorState = state match {
   }
 }
 
+def setCanvasSize(state: EvaluatorState, size: Vector): EvaluatorState = state match {
+  case EvaluatorState(mode, sources, net, errors) => {
+    EvaluatorState(mode, sources, net.setCanvasSize(size), errors)
+  }
+}
+
 def stepAnimation(state: EvaluatorState): EvaluatorState = state match {
   case EvaluatorState(mode, sources, net, errors) => {
     EvaluatorState(mode, sources, net.render(), errors)
@@ -81,7 +88,7 @@ def render(state: EvaluatorState): EvaluatorState =
   }
   state match {
     case EvaluatorState(InteractionCalculus(), sources, net, errors) => {
-      val net_ = render(loadNet { compile!() })
+      val net_ = render(state.net.load { compile!() })
       EvaluatorState(InteractionCalculus(), sources, net_, "")
     }
     case _ => <>
@@ -96,7 +103,7 @@ def model[R] { prog: => R / Model }: R / State[EvaluatorState] =
     def stepReduction() = <>
     def nextMode() = resume(modifyState { st => st.nextMode })
     def setSource(c) = resume(modifyState { st => st.setSource(c) })
-    def handleCanvas() = <>
+    def setCanvasSize(v) = resume(modifyState { st => st.setCanvasSize(v) })
 
     def getMode() = resume((do getState()).mode)
     def getSource(mode) = {
