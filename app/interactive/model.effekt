@@ -13,6 +13,7 @@ record NetState(net: Net, canvas: Canvas)
 
 type CanvasOp {
   Size(size: Vector)
+  Pan(offset: Vector)
   Zoom(delta: Double)
 }
 
@@ -68,7 +69,8 @@ def render(state: NetState): NetState / redraw = {
 }
 
 def operation(state: NetState, op: CanvasOp): NetState / redraw = op match {
-  case Size(s) => NetState(state.net, state.canvas.setSize(s))
+  case Size(s) => NetState(state.net, state.canvas.setSize(s)) // no render!
+  case Pan(o) => NetState(state.net, state.canvas.addOffset(o)).render()
   case Zoom(d) => NetState(state.net, state.canvas.map { sc => sc * 1.1.pow(d) }).render()
 }
 

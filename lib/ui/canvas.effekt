@@ -29,6 +29,9 @@ def setSize(canvas: Canvas, size: Vector): Canvas = {
   else Canvas(canvas.geometry, size, canvas.position, canvas.scale)
 }
 
+def addOffset(canvas: Canvas, offset: Vector): Canvas =
+  Canvas(canvas.geometry, canvas.size, canvas.position - offset, canvas.scale)
+
 def map(canvas: Canvas) { f: Double => Double }: Canvas =
   Canvas(canvas.geometry, canvas.size, canvas.position, f(canvas.scale))
 

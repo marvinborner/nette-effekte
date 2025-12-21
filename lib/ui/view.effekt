@@ -20,6 +20,7 @@ type EventHandler[Ev] {
   OnClick(handler: Ev)
   OnScroll(handler: Double => Ev at {})
   OnKeyUp(handler: String => Ev at {})
+  OnDrag(handler: Vector => Ev at {})
   OnResize(handler: Vector => Ev at {})
 }
 
@@ -53,6 +54,8 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
           element.onScroll(box { delta => send(ev(delta)) })
         case OnKeyUp(ev) =>
           element.onKeyUp(box { key => send(ev(element.value)) })
+        case OnDrag(ev) =>
+          element.onDrag(box { (x, y) => send(ev(Vector(x, y))) })
         case OnResize(ev) =>
           element.onResize(box { (initial, width, height) =>
             if (not(initial)) send(ev(Vector(width, height)))

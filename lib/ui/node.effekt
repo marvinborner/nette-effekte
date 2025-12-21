@@ -21,6 +21,27 @@ extern def onScroll(node: Node, handler: Double => Unit at {io, global}) at io: 
     ${node}.addEventListener('mousewheel', handler);
   })()"""
 
+// based on https://stackoverflow.com/a/5526721
+extern def onDrag(node: Node, handler: (Double, Double) => Unit at {io, global}) at io: Unit =
+  jsWeb """(function () {
+    let lastX = ${node}.width / 2, lastY = ${node}.height / 2;
+    let dragStart, dragged = false;
+    ${node}.addEventListener('mousedown', ({offsetX, pageX, offsetY, pageY}) => {
+      document.body.style.mozUserSelect = document.body.style.webkitUserSelect = document.body.style.userSelect = 'none';
+      lastX = offsetX || (pageX - ${node}.offsetLeft);
+      lastY = offsetY || (pageY - ${node}.offsetTop);
+      dragStart = { x: lastX, y: lastY };
+      dragged = false;
+    });
+    // TODO: 'mousemove' would be better here, but is difficult when immediately redrawing (dirty)
+    ${node}.addEventListener('mouseup', ({offsetX, pageX, offsetY, pageY}) => {
+      lastX = offsetX || (pageX - ${node}.offsetLeft);
+      lastY = offsetY || (pageY - ${node}.offsetTop);
+      dragged = true;
+      if (dragStart) $effekt.runToplevel((ks, k) => ${handler}(lastX - dragStart.x, lastY - dragStart.y, ks, k))
+    });
+  })()"""
+
 extern def onKeyUp(node: Node, handler: String => Unit at {io, global}) at io: Unit =
   jsWeb "${node}.addEventListener('keyup', ({key}) => $effekt.runToplevel((ks, k) => ${handler}(key, ks, k)))"
 

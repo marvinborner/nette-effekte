@@ -33,6 +33,7 @@ type Event {
   NextMode();
   SetSource(s: String);
   SetCanvasSize(v: Vector);
+  PanCanvas(v: Vector);
   ZoomCanvas(d: Double);
 }
 
@@ -43,6 +44,7 @@ def dispatch(msg: Event): Dirtiness / Model[Canvas, CanvasOp] = msg match {
   case NextMode()       => do nextMode()
   case SetSource(s)     => do setSource(s)
   case SetCanvasSize(v) => do onContext(Size(v))
+  case PanCanvas(v)     => do onContext(Pan(v))
   case ZoomCanvas(d)    => do onContext(Zoom(d))
 }
 
@@ -56,8 +58,12 @@ def view(): Html[Event] / Model[Canvas, CanvasOp] = {
     ]),
     div([ "split" ], [
       textarea([ OnKeyUp(box { s => SetSource(s) }) ], ["left", "code"], do getSource(do getMode())),
-      canvas([ OnResize(box { v => SetCanvasSize(v) }), OnClick(StepAnimation()), OnScroll(box { d => ZoomCanvas(d) }) ],
-        ["right", "inet"], do getContext()),
+      canvas([
+        OnResize(box { v => SetCanvasSize(v) }),
+        OnDrag(box { v => PanCanvas(v) }),
+        OnScroll(box { d => ZoomCanvas(d) }),
+        OnClick(StepAnimation()),
+      ], ["right", "inet"], do getContext()),
     ]),
     div([ "errors" ], [ text(do getErrors()) ]),
   ])
