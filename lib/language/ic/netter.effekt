@@ -6,7 +6,8 @@ import lib/language/ic/term
 import lib/net/net
 
 def circularLayout(k: Int): Vector = {
-  Vector(k.mod(3).toDouble, k.mod(3).toDouble).rotate(k.toDouble)
+  val scale = 100.0
+  Vector(k.mod(3).toDouble * scale, k.mod(3).toDouble * scale).rotate(k.toDouble)
 }
 
 def net!(): Unit / { Exception[WrongFormat], read[Constructor], NetStream } = {
@@ -32,8 +33,7 @@ def net!(): Unit / { Exception[WrongFormat], read[Constructor], NetStream } = {
     val ctor = do read()
     val pp_ = ctor.pp.uniqueMatch()
     val aux_ = ctor.aux.map { p => p.uniqueMatch() }
-    // do emit(Agent(ctor.pp.name, pp_, aux_, ctor.kind, circularLayout(k)))
-    do emit(Agent(ctor.pp.name, pp_, aux_, ctor.kind, Vector(0.0, 0.0)))
+    do emit(Agent(ctor.pp.name, pp_, aux_, ctor.kind, circularLayout(k)))
     k = k + 1
   }
 }

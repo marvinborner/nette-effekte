@@ -27,6 +27,7 @@ def textarea[Ev](handler: List[EventHandler[Ev]], classes: List[String], text: T
 type Event {
   Render();
   StepReduction();
+  StepAnimation();
   NextMode();
   SetSource(s: String);
   SetCanvasSize(v: Vector);
@@ -35,6 +36,7 @@ type Event {
 def dispatch(msg: Event) = msg match {
   case Render()         => do render()
   case StepReduction()  => do stepReduction()
+  case StepAnimation()  => do stepAnimation()
   case NextMode()       => do nextMode()
   case SetSource(s)     => do setSource(s)
   case SetCanvasSize(v) => do setCanvasSize(v)
@@ -50,7 +52,7 @@ def view(): Html[Event] / Model = {
     ]),
     div([ "split" ], [
       textarea([ OnKeyUp(box { s => SetSource(s) }, Keep()) ], ["left", "code"], do getSource(do getMode())),
-      canvas([ OnResize(box { v => SetCanvasSize(v) }, Keep()), OnClick(Render(), Redraw()) ], ["right", "inet"],
+      canvas([ OnResize(box { v => SetCanvasSize(v) }, Keep()), OnClick(StepAnimation(), Redraw()) ], ["right", "inet"],
         do getCanvas()),
     ]),
     div([ "errors" ], [ text(do getErrors()) ]),
@@ -72,7 +74,7 @@ def start() = {
     },
     tick = box {
       with model
-      Render().dispatch()
+      StepAnimation().dispatch()
     },
     view = box {
       with model

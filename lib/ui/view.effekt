@@ -113,6 +113,7 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
 
         render()
       }
+      // statefully(state) { tick() }
       requestIdleCallback(box loop)
     }
 

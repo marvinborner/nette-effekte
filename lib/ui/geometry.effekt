@@ -73,6 +73,6 @@ def principal(triangle: Triangle): Vector =
   Vector(triangle.center.x, triangle.center.y - triangle.halfHeight)
 
 def auxiliary(triangle: Triangle, index: Int): Vector = {
-  val step = triangle.width / triangle.arity.toDouble
-  Vector(triangle.center.x - triangle.halfWidth + (index.toDouble + 1.0) * step, triangle.center.y + triangle.halfHeight)
+  val step = triangle.width / (triangle.arity + 1).toDouble
+  Vector(triangle.center.x - triangle.halfWidth + (index + 1).toDouble * step, triangle.center.y + triangle.halfHeight)
 }

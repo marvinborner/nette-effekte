@@ -83,11 +83,6 @@ def applyTo(canvas: Canvas, node: Node): Unit / {} = {
   with canvas.transforming(ctx)
 
   try canvas.geometry.draw()
-  with emit[Arrow] { arrow =>
-    println("arrow: ${arrow.from.x.show},${arrow.from.y.show} to ${arrow.to.x.show},${arrow.to.y.show}")
-    resume(ctx.draw(arrow))
-  }
-  with emit[Triangle] { triangle =>
-    resume(ctx.draw(triangle))
-  }
+  with emit[Arrow] { arrow => resume(ctx.draw(arrow)) }
+  with emit[Triangle] { triangle => resume(ctx.draw(triangle)) }
 }

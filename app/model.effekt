@@ -19,6 +19,7 @@ record EvaluatorState(mode: Mode, sources: Map[Mode, TextStream], net: NetState,
 interface Model {
   def render(): Unit
   def stepReduction(): Unit
+  def stepAnimation(): Unit
   def nextMode(): Unit
   def setSource(s: String): Unit
   def setCanvasSize(v: Vector): Unit
@@ -101,6 +102,7 @@ def model[R] { prog: => R / Model }: R / State[EvaluatorState] =
   with Model {
     def render() = resume(modifyState { st => st.render })
     def stepReduction() = <>
+    def stepAnimation() = resume(modifyState { st => st.stepAnimation })
     def nextMode() = resume(modifyState { st => st.nextMode })
     def setSource(c) = resume(modifyState { st => st.setSource(c) })
     def setCanvasSize(v) = resume(modifyState { st => st.setCanvasSize(v) })

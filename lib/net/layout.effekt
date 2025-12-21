@@ -62,7 +62,7 @@ def layoutStep(agent: Agent) { net: => Unit / NetStream }: Agent = {
   // val sf = withForce(cgf) { agent.springForce(1.5) } {
   //   x => 0.2 * min(10.0, x * 0.9) }
 
-  println("new: ${cgf.x.show},${cgf.y.show}")
+  println("old: ${agent.pos.x.show},${agent.pos.y.show} new: ${cgf.x.show},${cgf.y.show}")
   agent.mapPosition { _ => cgf }
   // angularMomentum(position)
 }
