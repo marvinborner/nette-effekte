@@ -13,6 +13,9 @@ val pixelRatio: Double = getPixelRatio()
 extern def onClick(node: Node, handler: () => Unit at {io, global}) at io: Unit =
   jsWeb "${node}.addEventListener('click', () => $effekt.runToplevel(${handler}))"
 
+extern def onScroll(node: Node, handler: () => Unit at {io, global}) at io: Unit =
+  jsWeb "${node}.addEventListener('scroll', () => $effekt.runToplevel(${handler}))"
+
 extern def onKeyUp(node: Node, handler: String => Unit at {io, global}) at io: Unit =
   jsWeb "${node}.addEventListener('keyup', ({key}) => $effekt.runToplevel((ks, k) => ${handler}(key, ks, k)))"
 

@@ -1,4 +1,5 @@
 import lib/ui/view
+import lib/ui/model
 import lib/ui/node
 import lib/ui/canvas
 import lib/ui/vector
@@ -34,7 +35,7 @@ type Event {
   SetCanvasSize(v: Vector);
 }
 
-def dispatch(msg: Event): Unit / Model[Canvas] = msg match {
+def dispatch(msg: Event): Dirtiness / Model[Canvas] = msg match {
   case Render()         => do render()
   case StepReduction()  => do stepReduction()
   case StepAnimation()  => do stepAnimation()
@@ -47,14 +48,14 @@ def view(): Html[Event] / Model[Canvas] = {
   div([ "grid" ], [
     div([ "menu" ], [
       text("Nette Effekte"),
-      button([ OnClick(NextMode(), Redraw()) ], [], [ text("Current Mode: " ++ show(do getMode())) ]),
-      button([ OnClick(Render(), Redraw())], [], [ text("Render") ]),
-      button([ OnClick(StepReduction(), Redraw()) ], [], [ text("Step") ]),
+      button([ OnClick(NextMode()) ], [], [ text("Current Mode: " ++ show(do getMode())) ]),
+      button([ OnClick(Render())], [], [ text("Render") ]),
+      button([ OnClick(StepReduction()) ], [], [ text("Step") ]),
     ]),
     div([ "split" ], [
-      textarea([ OnKeyUp(box { s => SetSource(s) }, Keep()) ], ["left", "code"], do getSource(do getMode())),
-      canvas([ OnResize(box { v => SetCanvasSize(v) }, Keep()), OnClick(StepAnimation(), Redraw()) ], ["right", "inet"],
-        do getContext()),
+      textarea([ OnKeyUp(box { s => SetSource(s) }) ], ["left", "code"], do getSource(do getMode())),
+      canvas([ OnResize(box { v => SetCanvasSize(v) }), OnClick(StepAnimation()) ],
+        ["right", "inet"], do getContext()),
     ]),
     div([ "errors" ], [ text(do getErrors()) ]),
   ])
@@ -72,12 +73,12 @@ def start() = {
   run(appDiv, model::empty[NetState, Canvas](), View(
     update = box { (ev) =>
       with interactive
-      with model[Canvas, NetState, Unit]
+      with model[Canvas, NetState, Dirtiness]
       ev.dispatch()
     },
     tick = box {
       with interactive
-      with model[Canvas, NetState, Unit]
+      with model[Canvas, NetState, Dirtiness]
       StepAnimation().dispatch()
     },
     view = box {

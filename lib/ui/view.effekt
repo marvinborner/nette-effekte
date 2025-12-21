@@ -15,14 +15,11 @@ type Html[Ev] {
   Element(tag: String, classes: List[String], handler: List[EventHandler[Ev]], children: List[Html[Ev]], value: String)
 }
 
-/// for better textarea experience
-/// we should really be using DOM diffing or something, but this is fine
-type Dirtiness { Keep(); Redraw() }
-
 type EventHandler[Ev] {
-  OnClick(handler: Ev, dirty: Dirtiness)
-  OnKeyUp(handler: String => Ev at {}, dirty: Dirtiness)
-  OnResize(handler: Vector => Ev at {}, dirty: Dirtiness)
+  OnClick(handler: Ev)
+  OnScroll(handler: Ev)
+  OnKeyUp(handler: String => Ev at {})
+  OnResize(handler: Vector => Ev at {})
 }
 
 extern type IdleDeadline
@@ -34,8 +31,8 @@ extern def style(path: String) at io: Unit =
   jsWeb "document.head.insertAdjacentHTML('beforeend', '<link rel=\"stylesheet\" href=${path} />')"
 
 record View[St, Ev](
-  update: Ev => Unit / State[St] at {io, global},
-  tick: () => Unit / State[St] at {io, global},
+  update: Ev => Dirtiness / State[St] at {io, global},
+  tick: () => Dirtiness / State[St] at {io, global},
   view: () => Html[Ev] / State[St] at {io, global}
 )
 
@@ -49,20 +46,15 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
 
     def handleEvent(element: Node, handler: List[EventHandler[Ev]]) = {
       handler.foreach {
-        case OnClick(ev, dirtiness) =>
-          element.onClick(box {
-            send(ev)
-            if (dirtiness is Redraw()) dirty.set(true)
-          })
-        case OnKeyUp(ev, dirtiness) =>
-          element.onKeyUp(box { key =>
-            send(ev(element.value))
-            if (dirtiness is Redraw()) dirty.set(true)
-          })
-        case OnResize(ev, dirtiness) =>
+        case OnClick(ev) =>
+          element.onClick(box { send(ev) })
+        case OnScroll(ev) =>
+          element.onScroll(box { send(ev) })
+        case OnKeyUp(ev) =>
+          element.onKeyUp(box { key => send(ev(element.value)) })
+        case OnResize(ev) =>
           element.onResize(box { (initial, width, height) =>
             if (not(initial)) send(ev(Vector(width, height)))
-            if (dirtiness is Redraw()) dirty.set(true)
           })
       }
     }
@@ -107,7 +99,7 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
       if (messages.nonEmpty) {
         messages.foreach { ev =>
           with statefully(state)
-          update(ev)
+          if (update(ev) is Redraw()) dirty.set(true)
         }
 
         render()

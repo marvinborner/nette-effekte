@@ -25,12 +25,12 @@ def modifyState[N] { f: N => N }: Unit / State[EvaluatorState[N]] =
   do setState((do getState()).map { net => f(net) })
 
 interface Model[C] {
-  def render(): Unit
-  def stepReduction(): Unit
-  def stepAnimation(): Unit
-  def nextMode(): Unit
-  def setSource(s: String): Unit
-  def setSize(v: Vector): Unit // TODO: leaking impl
+  def render(): Dirtiness
+  def stepReduction(): Dirtiness
+  def stepAnimation(): Dirtiness
+  def nextMode(): Dirtiness
+  def setSource(s: String): Dirtiness
+  def setSize(v: Vector): Dirtiness // TODO: leaking impl
 
   def getMode(): Mode
   def getSource(mode: Mode): TextStream
@@ -97,12 +97,12 @@ def model[C, N, R] { prog: => R / Model[C] }: R / { State[EvaluatorState[N]], Ne
 
   try { prog() }
   with Model[C] {
-    def render() = resume(modifyState { st => st.render })
+    def render() = { modifyState { st => st.render }; resume(Redraw()) }
     def stepReduction() = <>
-    def stepAnimation() = resume(modifyState { net => do render(net) })
-    def nextMode() = resume(modifyState { st => st.nextMode })
-    def setSource(c) = resume(modifyState { st => st.setSource(c) })
-    def setSize(v) = resume(modifyState { net => do setSize(net, v) })
+    def stepAnimation() = { modifyState { net => do render(net) }; resume(Redraw()) }
+    def nextMode() = { modifyState { st => st.nextMode }; resume(Redraw()) }
+    def setSource(c) = { modifyState { st => st.setSource(c) }; resume(Keep()) }
+    def setSize(v) = { modifyState { net => do setSize(net, v) }; resume(Keep()) }
 
     def getMode() = resume((do getState()).mode)
     def getSource(mode) = {
