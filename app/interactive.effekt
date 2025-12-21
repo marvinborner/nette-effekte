@@ -59,7 +59,7 @@ def render(state: NetState): NetState = {
 }
 
 def setCanvasSize(state: NetState, size: Vector): NetState = {
-  NetState(state.net, state.canvas.setCanvasSize(size)).render()
+  NetState(state.net, state.canvas.setSize(size)).render()
 }
 
 def load(state: NetState) { prog: => Unit / NetStream }: NetState = {

@@ -1,12 +1,26 @@
+:root {
+    --code-color: #0f0;
+    --code-background-color: black;
+}
+
 html,
 body,
 #app {
+    background-color: var(--code-background-color);
     padding: 0;
     margin: 0;
     width: 100%;
     height: 100%;
     overflow: hidden;
     font-family: monospace;
+}
+
+button {
+    color: var(--code-color);
+    background: var(--code-background-color);
+    border: 1px solid var(--code-color);
+    border-radius: 0;
+    margin: 0 8px 0 8px;
 }
 
 .grid {
@@ -18,11 +32,22 @@ body,
 
 .menu {
     display: flex;
+    color: var(--code-color);
+    background-color: var(--code-background-color);
     justify-content: space-between;
-    background: #eee;
-    border-bottom: 1px solid black;
+    border-bottom: 1px solid var(--code-color);
     flex-shrink: 0;
     padding: 10px;
+}
+
+.code {
+    color: var(--code-color);
+    background-color: var(--code-background-color);
+    border: none;
+}
+
+.inet {
+    background-color: white;
 }
 
 .split {
