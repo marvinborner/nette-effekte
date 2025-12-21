@@ -1,20 +1,13 @@
-import app/view
+import app/cli/cli
+import app/interactive/view
 
 import lib/language/ic/parser
 import lib/language/ic/term
 
-extern def backend(): Int =
-  jsWeb "0"
-  js "1"
-  llvm "2"
+extern def interactive(): Bool =
+  jsWeb "true"
+  default { false }
 
-def mainJsWeb() at {io, global}: Unit / {} = {
-  start()
-}
-
-def main() = backend() match {
-  case 0 => mainJsWeb()
-  case 1 => <>
-  case 2 => <>
-  case _ => <>
-}
+def main() =
+  if (interactive()) view::start()
+  else cli::start()

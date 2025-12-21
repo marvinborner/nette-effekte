@@ -1,5 +1,7 @@
 import map
 
+import app/net
+
 import lib/net/net
 import lib/ui/geometry
 import lib/ui/vector
@@ -58,7 +60,7 @@ def render(state: NetState): NetState = {
   NetState(t.second, t.first)
 }
 
-def setCanvasSize(state: NetState, size: Vector): NetState = {
+def setSize(state: NetState, size: Vector): NetState = {
   NetState(state.net, state.canvas.setSize(size)).render()
 }
 
@@ -66,3 +68,13 @@ def load(state: NetState) { prog: => Unit / NetStream }: NetState = {
   val net: Net = collect { prog() }
   NetState(net, state.canvas)
 }
+
+def interactive[R] { prog: => R / NetModel[NetState, Canvas] }: R =
+  try prog()
+  with NetModel[NetState, Canvas] {
+    def empty() = resume(empty())
+    def load(net) = resume { { prog } => net.load { prog } }
+    def render(net) = resume(net.render)
+    def setSize(net, size) = resume(net.setSize(size))
+    def context(net) = resume(net.canvas)
+  }

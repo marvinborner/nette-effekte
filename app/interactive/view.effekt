@@ -3,6 +3,7 @@ import lib/ui/node
 import lib/ui/canvas
 import lib/ui/vector
 
+import app/interactive/model
 import app/model
 
 def text[Ev](content: String) = Text[Ev](content)
@@ -33,16 +34,16 @@ type Event {
   SetCanvasSize(v: Vector);
 }
 
-def dispatch(msg: Event) = msg match {
+def dispatch(msg: Event): Unit / Model[Canvas] = msg match {
   case Render()         => do render()
   case StepReduction()  => do stepReduction()
   case StepAnimation()  => do stepAnimation()
   case NextMode()       => do nextMode()
   case SetSource(s)     => do setSource(s)
-  case SetCanvasSize(v) => do setCanvasSize(v)
+  case SetCanvasSize(v) => do setSize(v)
 }
 
-def view(): Html[Event] / Model = {
+def view(): Html[Event] / Model[Canvas] = {
   div([ "grid" ], [
     div([ "menu" ], [
       text("Nette Effekte"),
@@ -53,7 +54,7 @@ def view(): Html[Event] / Model = {
     div([ "split" ], [
       textarea([ OnKeyUp(box { s => SetSource(s) }, Keep()) ], ["left", "code"], do getSource(do getMode())),
       canvas([ OnResize(box { v => SetCanvasSize(v) }, Keep()), OnClick(StepAnimation(), Redraw()) ], ["right", "inet"],
-        do getCanvas()),
+        do getContext()),
     ]),
     div([ "errors" ], [ text(do getErrors()) ]),
   ])
@@ -67,17 +68,21 @@ def start() = {
     documentBody.appendChild(newDiv)
   }
 
-  run(appDiv, model::empty(), View(
+  with interactive
+  run(appDiv, model::empty[NetState, Canvas](), View(
     update = box { (ev) =>
-      with model
+      with interactive
+      with model[Canvas, NetState, Unit]
       ev.dispatch()
     },
     tick = box {
-      with model
+      with interactive
+      with model[Canvas, NetState, Unit]
       StepAnimation().dispatch()
     },
     view = box {
-      with model
+      with interactive
+      with model[Canvas, NetState, Html[Event]]
       view()
     }))
 }

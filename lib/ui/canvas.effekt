@@ -3,9 +3,20 @@ import lib/ui/vector
 import lib/ui/context
 import lib/ui/geometry
 
+interface Handler {
+  def size(canvas: Canvas, size: Vector): Canvas
+}
+
 record Canvas(geometry: Geometry, size: Vector, position: Vector, scale: Double)
 
-def empty() = Canvas(empty(), Vector(100.0, 100.0), Vector(0.0, 0.0), 1.0)
+def handler[R] { prog: => R / Handler } = {
+  try prog()
+  with Handler {
+    def size(canvas, size) = <>
+  }
+}
+
+def empty() = Canvas(empty(), Vector(100.0, 100.0), Vector(0.0, 0.0), 0.8)
 
 // "drawing" in the sense of storing in Canvas structure :)
 def draw(canvas: Canvas) { draw: => Unit / Draw }: Canvas = {
@@ -17,6 +28,9 @@ def setSize(canvas: Canvas, size: Vector): Canvas = {
   if (size.x == 0.0 || size.y == 0.0) canvas
   else Canvas(canvas.geometry, size, canvas.position, canvas.scale)
 }
+
+def setScale(canvas: Canvas, scale: Double): Canvas =
+  Canvas(canvas.geometry, canvas.size, canvas.position, scale)
 
 def restore(ctx: Context) { draw: => Unit } = {
   ctx.save()

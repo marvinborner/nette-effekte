@@ -33,11 +33,10 @@ extern def requestIdleCallback(callback: (IdleDeadline) => Unit at {io, global})
 extern def style(path: String) at io: Unit =
   jsWeb "document.head.insertAdjacentHTML('beforeend', '<link rel=\"stylesheet\" href=${path} />')"
 
-// TODO: this shouldn't need IO nor global!! (possibly because of .getOrElse(<>))
 record View[St, Ev](
-  update: Ev => Unit / State[St] at {io,global},
-  tick: () => Unit / State[St] at {io,global},
-  view: () => Html[Ev] / State[St] at {io,global}
+  update: Ev => Unit / State[St] at {io, global},
+  tick: () => Unit / State[St] at {io, global},
+  view: () => Html[Ev] / State[St] at {io, global}
 )
 
 def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {

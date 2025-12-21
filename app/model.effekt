@@ -1,10 +1,9 @@
 import map
 
-import app/interactive
+import app/net
 import lib/net/net
 
 import lib/ui/model
-import lib/ui/canvas
 import lib/ui/vector
 import lib/language/ic/parser
 import lib/language/ic/compiler
@@ -14,19 +13,28 @@ import lib/language/ic/term
 type Mode { SourceLanguage(); LambdaCalculus(); InteractionCalculus() }
 
 type TextStream = => Unit / emit[Char] at {global}
-record EvaluatorState(mode: Mode, sources: Map[Mode, TextStream], net: NetState, errors: String)
+record EvaluatorState[N](mode: Mode, sources: Map[Mode, TextStream], net: N, errors: String)
 
-interface Model {
+def map[A, B](state: EvaluatorState[A]) { f: A => B }: EvaluatorState[B] = state match {
+  case EvaluatorState(mode, sources, net, errors) => {
+    EvaluatorState(mode, sources, f(net), errors)
+  }
+}
+
+def modifyState[N] { f: N => N }: Unit / State[EvaluatorState[N]] =
+  do setState((do getState()).map { net => f(net) })
+
+interface Model[C] {
   def render(): Unit
   def stepReduction(): Unit
   def stepAnimation(): Unit
   def nextMode(): Unit
   def setSource(s: String): Unit
-  def setCanvasSize(v: Vector): Unit
+  def setSize(v: Vector): Unit // TODO: leaking impl
 
   def getMode(): Mode
   def getSource(mode: Mode): TextStream
-  def getCanvas(): Canvas
+  def getContext(): C
   def getErrors(): String
 }
 
@@ -36,17 +44,17 @@ def show(m: Mode) = m match {
   case InteractionCalculus() => "Interaction Calculus"
 }
 
-def empty() = {
+def empty[N, C](): EvaluatorState[N] / NetModel[N, C] = {
   var map = map::emptyGeneric[Mode, TextStream]()
   val emptyStream: => Unit / emit[Char] at {} = box{}
   map = map.put(SourceLanguage(), emptyStream)
   map = map.put(LambdaCalculus(), emptyStream)
   map = map.put(InteractionCalculus(), emptyStream)
   // EvaluatorState(SourceLanguage(), map, empty(), "")
-  EvaluatorState(InteractionCalculus(), map, empty(), "")
+  EvaluatorState(InteractionCalculus(), map, do empty(), "")
 }
 
-def report[E](proxy: on[E], rollback: EvaluatorState) { prog: => EvaluatorState / Exception[E] }: EvaluatorState =
+def report[E, N](proxy: on[E], rollback: EvaluatorState[N]) { prog: => EvaluatorState[N] / Exception[E] }: EvaluatorState[N] =
   try { prog() } with Exception[E] {
     def raise(exception: E, msg: String) = {
       println(msg)
@@ -54,13 +62,13 @@ def report[E](proxy: on[E], rollback: EvaluatorState) { prog: => EvaluatorState 
     }
   }
 
-def nextMode(state: EvaluatorState): EvaluatorState = state match {
+def nextMode[N](state: EvaluatorState[N]): EvaluatorState[N] = state match {
   case EvaluatorState(SourceLanguage(), sources, net, errors)      => EvaluatorState(LambdaCalculus(), sources, net, errors)
   case EvaluatorState(LambdaCalculus(), sources, net, errors)      => EvaluatorState(InteractionCalculus(), sources, net, errors)
   case EvaluatorState(InteractionCalculus(), sources, net, errors) => EvaluatorState(SourceLanguage(), sources, net, errors)
 }
 
-def setSource(state: EvaluatorState, s: String): EvaluatorState = state match {
+def setSource[N](state: EvaluatorState[N], s: String): EvaluatorState[N] = state match {
   case EvaluatorState(mode, sources, net, errors) => {
     // this would have been so cool but would only work for linear ASCII input (no escape, arrow keys)
     // val currentStream = sources.getOrElse(mode){<>}
@@ -69,43 +77,32 @@ def setSource(state: EvaluatorState, s: String): EvaluatorState = state match {
   }
 }
 
-def setCanvasSize(state: EvaluatorState, size: Vector): EvaluatorState = state match {
-  case EvaluatorState(mode, sources, net, errors) => {
-    EvaluatorState(mode, sources, net.setCanvasSize(size), errors)
-  }
-}
-
-def stepAnimation(state: EvaluatorState): EvaluatorState = state match {
-  case EvaluatorState(mode, sources, net, errors) => {
-    EvaluatorState(mode, sources, net.render(), errors)
-  }
-}
-
-def render(state: EvaluatorState): EvaluatorState =
-  with on[MissingValue].panic // should be impossibly by now
+// compile + load + render
+def render[N, C](state: EvaluatorState[N]): EvaluatorState[N] / NetModel[N, C] =
+  with on[MissingValue].panic // should be impossible by now
   with on[WrongFormat].report(state)
-  with returning::source[Char, EvaluatorState] {
+  with returning::source[Char, EvaluatorState[N]] {
     (state.sources.get(state.mode).value)()
   }
   state match {
     case EvaluatorState(InteractionCalculus(), sources, net, errors) => {
-      val net_ = render(state.net.load { compile!() })
+      val net_ = do render(do load(net) { compile!() })
       EvaluatorState(InteractionCalculus(), sources, net_, "")
     }
     case _ => <>
 }
 
-def model[R] { prog: => R / Model }: R / State[EvaluatorState] =
-  with on[MissingValue].panic // should be impossibly by now
+def model[C, N, R] { prog: => R / Model[C] }: R / { State[EvaluatorState[N]], NetModel[N, C] } =
+  with on[MissingValue].panic // should be impossible by now
 
   try { prog() }
-  with Model {
+  with Model[C] {
     def render() = resume(modifyState { st => st.render })
     def stepReduction() = <>
-    def stepAnimation() = resume(modifyState { st => st.stepAnimation })
+    def stepAnimation() = resume(modifyState { net => do render(net) })
     def nextMode() = resume(modifyState { st => st.nextMode })
     def setSource(c) = resume(modifyState { st => st.setSource(c) })
-    def setCanvasSize(v) = resume(modifyState { st => st.setCanvasSize(v) })
+    def setSize(v) = resume(modifyState { net => do setSize(net, v) })
 
     def getMode() = resume((do getState()).mode)
     def getSource(mode) = {
@@ -114,5 +111,5 @@ def model[R] { prog: => R / Model }: R / State[EvaluatorState] =
       resume(source)
     }
     def getErrors() = resume((do getState()).errors)
-    def getCanvas() = resume((do getState()).net.canvas)
+    def getContext() = resume(do context((do getState()).net))
   }

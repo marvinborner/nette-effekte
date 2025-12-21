@@ -25,27 +25,27 @@ def springTargets(wire: Wire, agent: Agent, length: Double) { agents: => Unit / 
   do emit((pos + direction.normalize) * length) // TODO: should this somehow return multiple vectors?
 }
 
-def adverseAgents(agent: Agent, wire: Wire) { agents: => Unit / AgentStream }: Unit / emit[Agent] =
-  for { agents() } { a =>
-    if (a.pp != agent.pp && a.attachedTo(wire)) do emit(a)
-  }
+def adverseAgents(agent: Agent, wire: Wire) { agents: => Unit / AgentStream }: Unit / AgentStream =
+  with val a = for { agents() }
+  if (a.pp != agent.pp && a.attachedTo(wire)) do emit(a)
 
 def wireForce(agent: Agent, length: Double) { agents: => Unit / AgentStream } { f: => Unit / WireStream }: Unit / { Force, emit[Vector] } =
-  for { f() } { wire =>
-    do emit(forceSum {
-      for {
-        for { agent.adverseAgents(wire) {agents} } { a =>
-          wire.springTargets(a, length) {agents} }
-      } { adverseTarget =>
-        for { wire.springTargets(agent, length) {agents} } { agentTarget =>
-          do emit(attraction(adverseTarget, agentTarget))
-        }
+  with val wire = for { f() }
+  do emit(forceSum {
+    for {
+      for { agent.adverseAgents(wire) {agents} } { a =>
+        wire.springTargets(a, length) {agents} }
+    } { adverseTarget =>
+      for { wire.springTargets(agent, length) {agents} } { agentTarget =>
+        do emit(attraction(adverseTarget, agentTarget))
       }
-    })
-  }
+    }
+  })
 
 def springForce(agent: Agent, length: Double) { net: => Unit / NetStream }: Vector / Force =
-  average { agent.wireForce(length) { agents{net} } { agent.attachedWires { wires{net} } } }
+  with average
+  with agent.wireForce(length) { agents{net} }
+  agent.attachedWires { wires{net} }
 
 def withForce(position: Vector) { f: => Vector / Force } { s: Double => Double }: Vector  =
   try f()
@@ -67,8 +67,6 @@ def layoutStep(agent: Agent) { net: => Unit / NetStream }: Agent = {
   // angularMomentum(position)
 }
 
-def layout { net: => Unit / NetStream }: Unit / NetStream = {
-  for[Agent] { net() } { agent =>
-    do emit(agent.layoutStep {net})
-  }
-}
+def layout { net: => Unit / NetStream }: Unit / NetStream =
+  with val agent = for[Agent] { net() }
+  do emit(agent.layoutStep {net})
