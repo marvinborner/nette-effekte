@@ -33,18 +33,20 @@ type Event {
   NextMode();
   SetSource(s: String);
   SetCanvasSize(v: Vector);
+  ZoomCanvas(d: Double);
 }
 
-def dispatch(msg: Event): Dirtiness / Model[Canvas] = msg match {
+def dispatch(msg: Event): Dirtiness / Model[Canvas, CanvasOp] = msg match {
   case Render()         => do render()
   case StepReduction()  => do stepReduction()
   case StepAnimation()  => do stepAnimation()
   case NextMode()       => do nextMode()
   case SetSource(s)     => do setSource(s)
-  case SetCanvasSize(v) => do setSize(v)
+  case SetCanvasSize(v) => do onContext(Size(v))
+  case ZoomCanvas(d)    => do onContext(Zoom(d))
 }
 
-def view(): Html[Event] / Model[Canvas] = {
+def view(): Html[Event] / Model[Canvas, CanvasOp] = {
   div([ "grid" ], [
     div([ "menu" ], [
       text("Nette Effekte"),
@@ -54,7 +56,7 @@ def view(): Html[Event] / Model[Canvas] = {
     ]),
     div([ "split" ], [
       textarea([ OnKeyUp(box { s => SetSource(s) }) ], ["left", "code"], do getSource(do getMode())),
-      canvas([ OnResize(box { v => SetCanvasSize(v) }), OnClick(StepAnimation()) ],
+      canvas([ OnResize(box { v => SetCanvasSize(v) }), OnClick(StepAnimation()), OnScroll(box { d => ZoomCanvas(d) }) ],
         ["right", "inet"], do getContext()),
     ]),
     div([ "errors" ], [ text(do getErrors()) ]),
@@ -70,20 +72,20 @@ def start() = {
   }
 
   with interactive
-  run(appDiv, model::empty[NetState, Canvas](), View(
-    update = box { (ev) =>
+  run(appDiv, model::empty[NetState, Canvas, CanvasOp](), View(
+    update = box { ev =>
       with interactive
-      with model[Canvas, NetState, Dirtiness]
+      with model[Canvas, CanvasOp, Dirtiness, NetState]
       ev.dispatch()
     },
     tick = box {
       with interactive
-      with model[Canvas, NetState, Dirtiness]
+      with model[Canvas, CanvasOp, Dirtiness, NetState]
       StepAnimation().dispatch()
     },
     view = box {
       with interactive
-      with model[Canvas, NetState, Html[Event]]
+      with model[Canvas, CanvasOp, Html[Event], NetState]
       view()
     }))
 }

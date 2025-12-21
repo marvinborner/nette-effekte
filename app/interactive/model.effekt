@@ -10,6 +10,11 @@ import lib/net/layout
 
 record NetState(net: Net, canvas: Canvas)
 
+type CanvasOp {
+  Size(size: Vector)
+  Zoom(delta: Double)
+}
+
 def empty(): Net = box {}
 def empty() = NetState(empty(), empty())
 
@@ -60,8 +65,9 @@ def render(state: NetState): NetState = {
   NetState(t.second, t.first)
 }
 
-def setSize(state: NetState, size: Vector): NetState = {
-  NetState(state.net, state.canvas.setSize(size)).render()
+def operation(state: NetState, op: CanvasOp): NetState = op match {
+  case Size(s) => NetState(state.net, state.canvas.setSize(s)).render()
+  case Zoom(d) => NetState(state.net, state.canvas.map { sc => sc * 1.1.pow(d) }).render()
 }
 
 def load(state: NetState) { prog: => Unit / NetStream }: NetState = {
@@ -69,12 +75,12 @@ def load(state: NetState) { prog: => Unit / NetStream }: NetState = {
   NetState(net, state.canvas)
 }
 
-def interactive[R] { prog: => R / NetModel[NetState, Canvas] }: R =
+def interactive[R] { prog: => R / NetModel[NetState, Canvas, CanvasOp] }: R =
   try prog()
-  with NetModel[NetState, Canvas] {
+  with NetModel[NetState, Canvas, CanvasOp] {
     def empty() = resume(empty())
     def load(net) = resume { { prog } => net.load { prog } }
     def render(net) = resume(net.render)
-    def setSize(net, size) = resume(net.setSize(size))
+    def operation(net, op) = resume(net.operation(op))
     def context(net) = resume(net.canvas)
   }

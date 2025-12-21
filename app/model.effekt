@@ -24,13 +24,13 @@ def map[A, B](state: EvaluatorState[A]) { f: A => B }: EvaluatorState[B] = state
 def modifyState[N] { f: N => N }: Unit / State[EvaluatorState[N]] =
   do setState((do getState()).map { net => f(net) })
 
-interface Model[C] {
+interface Model[C, O] {
   def render(): Dirtiness
   def stepReduction(): Dirtiness
   def stepAnimation(): Dirtiness
   def nextMode(): Dirtiness
   def setSource(s: String): Dirtiness
-  def setSize(v: Vector): Dirtiness // TODO: leaking impl
+  def onContext(op: O): Dirtiness
 
   def getMode(): Mode
   def getSource(mode: Mode): TextStream
@@ -44,7 +44,7 @@ def show(m: Mode) = m match {
   case InteractionCalculus() => "Interaction Calculus"
 }
 
-def empty[N, C](): EvaluatorState[N] / NetModel[N, C] = {
+def empty[N, C, O](): EvaluatorState[N] / NetModel[N, C, O] = {
   var map = map::emptyGeneric[Mode, TextStream]()
   val emptyStream: => Unit / emit[Char] at {} = box{}
   map = map.put(SourceLanguage(), emptyStream)
@@ -78,7 +78,7 @@ def setSource[N](state: EvaluatorState[N], s: String): EvaluatorState[N] = state
 }
 
 // compile + load + render
-def render[N, C](state: EvaluatorState[N]): EvaluatorState[N] / NetModel[N, C] =
+def render[N, C, O](state: EvaluatorState[N]): EvaluatorState[N] / NetModel[N, C, O] =
   with on[MissingValue].panic // should be impossible by now
   with on[WrongFormat].report(state)
   with returning::source[Char, EvaluatorState[N]] {
@@ -92,22 +92,21 @@ def render[N, C](state: EvaluatorState[N]): EvaluatorState[N] / NetModel[N, C] =
     case _ => <>
 }
 
-def model[C, N, R] { prog: => R / Model[C] }: R / { State[EvaluatorState[N]], NetModel[N, C] } =
+def model[C, O, R, N] { prog: => R / Model[C, O] }: R / { State[EvaluatorState[N]], NetModel[N, C, O] } =
   with on[MissingValue].panic // should be impossible by now
 
   try { prog() }
-  with Model[C] {
+  with Model[C, O] {
     def render() = { modifyState { st => st.render }; resume(Redraw()) }
     def stepReduction() = <>
     def stepAnimation() = { modifyState { net => do render(net) }; resume(Redraw()) }
     def nextMode() = { modifyState { st => st.nextMode }; resume(Redraw()) }
     def setSource(c) = { modifyState { st => st.setSource(c) }; resume(Keep()) }
-    def setSize(v) = { modifyState { net => do setSize(net, v) }; resume(Keep()) }
+    def onContext(op) = { modifyState { net => do operation(net, op) }; resume(Keep()) }
 
     def getMode() = resume((do getState()).mode)
     def getSource(mode) = {
-      val state = do getState()
-      val source = state.sources.get(mode).value
+      val source = (do getState()).sources.get(mode).value
       resume(source)
     }
     def getErrors() = resume((do getState()).errors)

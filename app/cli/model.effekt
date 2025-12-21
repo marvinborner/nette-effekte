@@ -12,12 +12,12 @@ def load(state: NetState) { prog: => Unit / NetStream }: NetState = {
   NetState(net)
 }
 
-def cli[R] { prog: => R / NetModel[NetState, Context] }: R =
+def cli[R] { prog: => R / NetModel[NetState, Context, Unit] }: R =
   try prog()
-  with NetModel[NetState, Context] {
+  with NetModel[NetState, Context, Unit] {
     def empty() = resume(empty())
     def load(net) = resume { { prog } => net.load { prog } }
     def render(net) = resume(net)
-    def setSize(net, size) = resume(net)
+    def operation(net, op) = resume(net)
     def context(net) = resume(Context())
   }

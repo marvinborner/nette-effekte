@@ -17,7 +17,7 @@ type Html[Ev] {
 
 type EventHandler[Ev] {
   OnClick(handler: Ev)
-  OnScroll(handler: Ev)
+  OnScroll(handler: Double => Ev at {})
   OnKeyUp(handler: String => Ev at {})
   OnResize(handler: Vector => Ev at {})
 }
@@ -49,7 +49,7 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
         case OnClick(ev) =>
           element.onClick(box { send(ev) })
         case OnScroll(ev) =>
-          element.onScroll(box { send(ev) })
+          element.onScroll(box { delta => send(ev(delta)) })
         case OnKeyUp(ev) =>
           element.onKeyUp(box { key => send(ev(element.value)) })
         case OnResize(ev) =>

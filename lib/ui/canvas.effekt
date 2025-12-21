@@ -29,8 +29,8 @@ def setSize(canvas: Canvas, size: Vector): Canvas = {
   else Canvas(canvas.geometry, size, canvas.position, canvas.scale)
 }
 
-def setScale(canvas: Canvas, scale: Double): Canvas =
-  Canvas(canvas.geometry, canvas.size, canvas.position, scale)
+def map(canvas: Canvas) { f: Double => Double }: Canvas =
+  Canvas(canvas.geometry, canvas.size, canvas.position, f(canvas.scale))
 
 def restore(ctx: Context) { draw: => Unit } = {
   ctx.save()
@@ -46,6 +46,7 @@ def path(ctx: Context) { draw: => Unit } = {
 
 def transforming(canvas: Canvas, ctx: Context) { draw: => Unit } = {
   with ctx.restore
+  println(canvas.scale)
   ctx.translate(canvas.size.x / 2.0, canvas.size.y / 2.0)
   ctx.scale(canvas.scale * pixelRatio, canvas.scale * pixelRatio)
   ctx.translate(-1.0 * canvas.position.x, -1.0 * canvas.position.y)
