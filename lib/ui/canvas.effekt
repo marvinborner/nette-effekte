@@ -16,7 +16,7 @@ def handler[R] { prog: => R / Handler } = {
   }
 }
 
-def empty() = Canvas(empty(), Vector(100.0, 100.0), Vector(0.0, 0.0), 0.8)
+def empty() = Canvas(empty(), Vector(1000.0, 1000.0), Vector(0.0, 0.0), 1.0)
 
 // "drawing" in the sense of storing in Canvas structure :)
 def draw(canvas: Canvas) { draw: => Unit / Draw }: Canvas = {
