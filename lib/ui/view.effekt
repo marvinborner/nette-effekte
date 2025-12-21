@@ -6,6 +6,7 @@ import test
 
 import lib/ui/node
 import lib/ui/model
+import lib/ui/dirty
 import lib/ui/canvas
 import lib/ui/vector
 
@@ -99,7 +100,7 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
       if (messages.nonEmpty) {
         messages.foreach { ev =>
           with statefully(state)
-          if (update(ev) is Redraw()) dirty.set(true)
+          if (update(ev) is Dirty()) dirty.set(true)
         }
 
         render()

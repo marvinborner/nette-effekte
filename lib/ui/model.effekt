@@ -1,7 +1,3 @@
-/// for better textarea experience
-/// we should really be using DOM diffing or something, but this is fine
-type Dirtiness { Keep(); Redraw() }
-
 interface State[St] {
   def getState(): St
   def setState(s: St): Unit

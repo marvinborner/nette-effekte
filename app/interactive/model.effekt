@@ -4,6 +4,7 @@ import app/net
 
 import lib/net/net
 import lib/ui/geometry
+import lib/ui/dirty
 import lib/ui/vector
 import lib/ui/canvas
 import lib/net/layout
@@ -57,21 +58,23 @@ def render(state: NetState): Unit / { Draw, NetStream } = {
   }
 }
 
-def render(state: NetState): NetState = {
+def render(state: NetState): NetState / redraw = {
   val t: (Canvas, Net) = returning::collect {
     val canvas = state.canvas.draw { state.render() }
     canvas
   }
+  do redraw()
   NetState(t.second, t.first)
 }
 
-def operation(state: NetState, op: CanvasOp): NetState = op match {
-  case Size(s) => NetState(state.net, state.canvas.setSize(s)).render()
+def operation(state: NetState, op: CanvasOp): NetState / redraw = op match {
+  case Size(s) => NetState(state.net, state.canvas.setSize(s))
   case Zoom(d) => NetState(state.net, state.canvas.map { sc => sc * 1.1.pow(d) }).render()
 }
 
-def load(state: NetState) { prog: => Unit / NetStream }: NetState = {
+def load(state: NetState) { prog: => Unit / NetStream }: NetState / redraw = {
   val net: Net = collect { prog() }
+  do redraw()
   NetState(net, state.canvas)
 }
 
@@ -79,8 +82,8 @@ def interactive[R] { prog: => R / NetModel[NetState, Canvas, CanvasOp] }: R =
   try prog()
   with NetModel[NetState, Canvas, CanvasOp] {
     def empty() = resume(empty())
-    def load(net) = resume { { prog } => net.load { prog } }
-    def render(net) = resume(net.render)
-    def operation(net, op) = resume(net.operation(op))
     def context(net) = resume(net.canvas)
+    def load(net) = resume { { prog } => net.load { prog } }
+    def render(net) = resume { net.render }
+    def operation(net, op) = resume { net.operation(op) }
   }

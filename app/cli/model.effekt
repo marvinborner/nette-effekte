@@ -16,8 +16,8 @@ def cli[R] { prog: => R / NetModel[NetState, Context, Unit] }: R =
   try prog()
   with NetModel[NetState, Context, Unit] {
     def empty() = resume(empty())
-    def load(net) = resume { { prog } => net.load { prog } }
-    def render(net) = resume(net)
-    def operation(net, op) = resume(net)
     def context(net) = resume(Context())
+    def load(net) = resume { { prog } => net.load { prog } }
+    def render(net) = resume { => net }
+    def operation(net, op) = resume { => net }
   }

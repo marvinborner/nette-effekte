@@ -1,5 +1,5 @@
 import lib/ui/view
-import lib/ui/model
+import lib/ui/dirty
 import lib/ui/node
 import lib/ui/canvas
 import lib/ui/vector

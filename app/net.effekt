@@ -1,10 +1,11 @@
 import lib/net/net
+import lib/ui/dirty
 import lib/ui/vector
 
 interface NetModel[N, C, O] {
   def empty(): N
-  def load(net: N) { prog: => Unit / NetStream }: N
-  def render(net: N): N
-  def operation(net: N, op: O): N
   def context(net: N): C
+  def load(net: N) { prog: => Unit / NetStream }: N / redraw
+  def render(net: N): N / redraw
+  def operation(net: N, op: O): N / redraw
 }

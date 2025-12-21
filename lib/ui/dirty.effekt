@@ -1,0 +1,16 @@
+/// for better experience with dynamic interfaces (e.g. textarea, canvas zoom)
+/// we should really be using DOM diffing or something, but this is fine
+type Dirtiness { Clean(); Dirty() }
+
+effect redraw(): Unit
+
+/// dirt reification
+def collect[R] { prog: => R / redraw }: Dirtiness = {
+  val clean: Ref[Bool] = ref(true)
+
+  try prog()
+  with redraw { resume(clean.set(false)) }
+
+  if (clean.get) Clean()
+  else Dirty()
+}

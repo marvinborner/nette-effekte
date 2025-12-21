@@ -4,6 +4,7 @@ import app/net
 import lib/net/net
 
 import lib/ui/model
+import lib/ui/dirty
 import lib/ui/vector
 import lib/language/ic/parser
 import lib/language/ic/compiler
@@ -78,18 +79,20 @@ def setSource[N](state: EvaluatorState[N], s: String): EvaluatorState[N] = state
 }
 
 // compile + load + render
-def render[N, C, O](state: EvaluatorState[N]): EvaluatorState[N] / NetModel[N, C, O] =
+def render[N, C, O](state: EvaluatorState[N]): EvaluatorState[N] / { NetModel[N, C, O], redraw } = {
   with on[MissingValue].panic // should be impossible by now
   with on[WrongFormat].report(state)
   with returning::source[Char, EvaluatorState[N]] {
     (state.sources.get(state.mode).value)()
   }
+  do redraw()
   state match {
     case EvaluatorState(InteractionCalculus(), sources, net, errors) => {
       val net_ = do render(do load(net) { compile!() })
       EvaluatorState(InteractionCalculus(), sources, net_, "")
     }
     case _ => <>
+  }
 }
 
 def model[C, O, R, N] { prog: => R / Model[C, O] }: R / { State[EvaluatorState[N]], NetModel[N, C, O] } =
@@ -97,12 +100,12 @@ def model[C, O, R, N] { prog: => R / Model[C, O] }: R / { State[EvaluatorState[N
 
   try { prog() }
   with Model[C, O] {
-    def render() = { modifyState { st => st.render }; resume(Redraw()) }
+    def render() = resume(collect { modifyState { st => st.render } })
     def stepReduction() = <>
-    def stepAnimation() = { modifyState { net => do render(net) }; resume(Redraw()) }
-    def nextMode() = { modifyState { st => st.nextMode }; resume(Redraw()) }
-    def setSource(c) = { modifyState { st => st.setSource(c) }; resume(Keep()) }
-    def onContext(op) = { modifyState { net => do operation(net, op) }; resume(Keep()) }
+    def stepAnimation() = resume(collect { modifyState { net => do render(net) } })
+    def nextMode() = resume(collect { modifyState { st => st.nextMode } })
+    def setSource(c) = resume(collect { modifyState { st => st.setSource(c) } })
+    def onContext(op) = resume(collect { modifyState { net => do operation(net, op) } })
 
     def getMode() = resume((do getState()).mode)
     def getSource(mode) = {
