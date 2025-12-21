@@ -48,9 +48,7 @@ type Geometry = => Unit / Draw at {}
 
 def empty(): Geometry = box{}
 
-def draw(geometry: Geometry): Unit / Draw = {
-  geometry()
-}
+def draw(geometry: Geometry): Unit / Draw = geometry()
 
 def collect { draw: => Unit / Draw }: ReifiedGeometry = {
   val tup: (List[Arrow], List[Triangle]) = returning::collect { collect { draw() } }
@@ -65,13 +63,16 @@ def collect { draw: => Unit / Draw }: Geometry = {
 def height(triangle: Triangle): Double =
   triangle.width * (3.0.sqrt / 2.0)
 
+def halfHeight(triangle: Triangle): Double =
+  triangle.height / 2.0
 
-def principal(triangle: Triangle): Vector = {
-  Vector(triangle.center.x, triangle.center.y + triangle.height)
-}
+def halfWidth(triangle: Triangle): Double =
+  triangle.width / 2.0
+
+def principal(triangle: Triangle): Vector =
+  Vector(triangle.center.x, triangle.center.y - triangle.halfHeight)
 
 def auxiliary(triangle: Triangle, index: Int): Vector = {
-  val width = 50.0 // TODO
-  val step = width / triangle.arity.toDouble
-  Vector(triangle.center.x - width + index.toDouble * step, triangle.center.y - triangle.height)
+  val step = triangle.width / triangle.arity.toDouble
+  Vector(triangle.center.x - triangle.halfWidth + (index.toDouble + 1.0) * step, triangle.center.y + triangle.halfHeight)
 }

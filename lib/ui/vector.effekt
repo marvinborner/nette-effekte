@@ -4,6 +4,7 @@ record Vector(x: Double, y: Double)
 
 def infixAdd(v1: Vector, v2: Vector) = Vector(v1.x + v2.x, v1.y + v2.y)
 def infixSub(v1: Vector, v2: Vector) = Vector(v1.x - v2.x, v1.y - v2.y)
+def infixAdd(v: Vector, s: Double) = Vector(v.x + s, v.y + s)
 def infixMul(v: Vector, s: Double) = Vector(v.x * s, v.y * s)
 def infixDiv(v: Vector, s: Double) = Vector(v.x / s, v.y / s)
 
