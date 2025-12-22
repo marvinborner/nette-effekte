@@ -27,7 +27,6 @@ def textarea[Ev](handler: List[EventHandler[Ev]], classes: List[String], text: T
 // ---
 
 type Event {
-  Typing(y: Bool);
   Render();
   StepReduction();
   StepAnimation();
@@ -39,7 +38,6 @@ type Event {
 }
 
 def dispatch(msg: Event): Unit / { Model[Canvas, CanvasOp], Redraw }  = msg match {
-  case Typing(y)        => do typing(y)
   case Render()         => do render()
   case StepReduction()  => do stepReduction()
   case StepAnimation()  => do stepAnimation()
@@ -61,15 +59,12 @@ def view(): Html[Event] / { Model[Canvas, CanvasOp], tag } = {
     div([ "split" ], [
       textarea([
         OnKeyUp(box { s => SetSource(s) }),
-        OnClick(Typing(true))
       ], ["left", "code"], do getSource(do getMode())),
       canvas([
         OnResize(box { v => SetCanvasSize(v) }),
         OnDrag(box { v => PanCanvas(v) }),
         OnScroll(box { d => ZoomCanvas(d) }),
         OnTick(StepAnimation()),
-        // OnMouseDown(Typing(true)), // TODO: to prevent panning lag
-        OnClick(Typing(false)),
       ], ["right", "inet"], do getContext()),
     ]),
     div([ "errors" ], [ text(do getErrors()) ]),

@@ -26,7 +26,6 @@ def modifyState[N] { f: N => N }: Unit / State[EvaluatorState[N]] =
   do setState((do getState()).map { net => f(net) })
 
 interface Model[C, O] {
-  def typing(y: Bool): Unit / Redraw
   def render(): Unit / Redraw
   def stepReduction(): Unit / Redraw
   def stepAnimation(): Unit / Redraw
@@ -85,16 +84,6 @@ def setSource[N](state: EvaluatorState[N], s: String): EvaluatorState[N] / Redra
   }
 }
 
-def typing[N](state: EvaluatorState[N], y: Bool): EvaluatorState[N] = state match {
-  case EvaluatorState(mode, sources, net, typing, errors) => {
-    println("typing: ${y.show}")
-    EvaluatorState(mode, sources, net, y, errors)
-  }
-}
-
-def notTyping[N] { prog: => Unit }: Unit / State[EvaluatorState[N]] =
-  if (not((do getState()).typing)) prog()
-
 // compile + load + render
 def render[N, C, O](state: EvaluatorState[N]): EvaluatorState[N] / { NetModel[N, C, O], Redraw } = {
   with on[MissingValue].panic // should be impossible by now
@@ -117,10 +106,9 @@ def model[C, O, R, N] { prog: => R / Model[C, O] }: R / { State[EvaluatorState[N
 
   try { prog() }
   with Model[C, O] {
-    def typing(y) = resume { modifyState { st => st.typing(y) } }
     def render() = resume { modifyState { st => st.render } }
     def stepReduction() = <>
-    def stepAnimation() = resume { notTyping { modifyState { net => do render(net) } } }
+    def stepAnimation() = resume { modifyState { net => do render(net) } }
     def nextMode() = resume { modifyState { st => st.nextMode } }
     def setSource(c) = resume { modifyState { st => st.setSource(c) } }
     def onContext(op) = resume { modifyState { net => do operation(net, op) } }
