@@ -1,0 +1,52 @@
+import lib/language/lc/term
+import lib/language/lexer
+import lib/language/parser
+
+def parseSym(): Term / Parser = {
+  val name = ident()
+  Sym(name)
+}
+
+def parseAbs(): Term / Parser = {
+  or([
+    box { punct("λ") },
+    box { punct("\\") },
+  ])
+  val name = ident()
+  punct(".")
+  val body = parseTerm()
+  Abs(name, body)
+}
+
+def parseApp(): Term / Parser = {
+  punct("(")
+  val f = parseTerm()
+  val as = some { parseTerm() }
+  punct(")")
+  as.foldLeft(f) { (f, a) => App(f, a) }
+}
+
+def parseTerm(): Term / Parser =
+  or([
+    box { parseAbs() },
+    box { parseApp() },
+    box { parseSym() },
+  ])
+
+def parseProgram(): List[Term] / Parser = some { parseTerm() }
+
+// TODO: make this stream-based?
+def parseS(input: String): List[Term] / Exception[WrongFormat] =
+  try { lexer(input) { skipWhitespace { Success(parseProgram()) }}}
+  with Nondet {
+    def alt() = resume(true) match {
+      case Error(_, _) => resume(false)
+      case Success(res) => Success(res)
+    }
+    def fail(msg) = Error(WrongFormat(), msg)
+  }
+  with LexerError { (msg, pos) => Error(WrongFormat(), "${pos.show}: ${msg}") }
+  .value
+
+def parse!(): Unit / { Exception[WrongFormat], read[Char], emit[Term] } =
+  parseS(collect { exhaustively { do emit(do read[Char]()) } }).each

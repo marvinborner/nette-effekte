@@ -1,7 +1,7 @@
 import lib/ui/geometry
 import lib/ui/vector
 
-type Kind { LightTriangle(); DarkTriangle(); LightCircle(); DarkCircle() }
+type Kind { LightTriangle(); DarkTriangle(); LightCircle(); DarkCircle(); Multiplexer() }
 
 type Label = Int // TODO: Ref[Int]?
 

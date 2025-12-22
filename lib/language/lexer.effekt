@@ -60,7 +60,7 @@ record TokenRx(kind: TokenKind, rx: Regex)
 val tokenDesriptors = [
   TokenRx(Number(), "^[0-9]+".regex),
   TokenRx(Ident(),  "^[a-zA-Z]+[a-zA-Z0-9]*".regex),
-  TokenRx(Punct(),  "^[+-=,.()\\[\\]{}:]".regex),
+  TokenRx(Punct(),  "^[+-=,.()\\[\\]{}:α-ωΑ-Ω]".regex),
   TokenRx(Space(),  "^[ \t\r\n]+".regex)
 ]
 

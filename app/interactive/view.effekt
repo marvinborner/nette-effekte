@@ -1,3 +1,5 @@
+module interactive
+
 import lib/ui/view
 import lib/ui/dirty
 import lib/ui/node

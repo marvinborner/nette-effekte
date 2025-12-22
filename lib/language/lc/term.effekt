@@ -1,0 +1,26 @@
+type Term {
+  Sym(x: String)
+  Abs(x: String, b: Term)
+  App(f: Term, a: Term)
+}
+
+interface TermF[A] {
+  def sym(x: String): A
+  def abs(x: String, b: A): A
+  def app(f: A, a: A): A
+}
+
+def cata[A](t: Term): A / TermF[A] =
+  t match {
+    case Sym(x)    => do sym(x)
+    case Abs(x, b) => do abs(x, b.cata)
+    case App(f, a) => do app(f.cata, a.cata)
+  }
+
+def show(t: Term) =
+  try t.cata
+  with TermF[String] {
+    def sym(x)    = resume("${x}")
+    def abs(x, b) = resume("λ${x}.${b}")
+    def app(f, a) = resume("(${f} ${a})")
+  }

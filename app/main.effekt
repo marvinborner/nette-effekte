@@ -1,4 +1,4 @@
-import app/cli/cli
+import app/cli/view
 import app/interactive/view
 
 import lib/language/ic/parser
@@ -9,5 +9,5 @@ extern def interactive(): Bool =
   default { false }
 
 def main() =
-  if (interactive()) view::start()
+  if (interactive()) interactive::start()
   else cli::start()

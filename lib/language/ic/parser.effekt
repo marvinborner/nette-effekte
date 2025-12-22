@@ -34,6 +34,7 @@ def parseConstructor(): Constructor / Parser = {
     case DarkTriangle() => punct("]")
     case LightCircle() => punct("}")
     case DarkCircle() => punct("?") // TODO: dark circle
+    case Multiplexer() => <> // synthetic
   }
   Constructor(pp, aux, kind)
 }

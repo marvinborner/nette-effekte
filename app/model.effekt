@@ -8,17 +8,18 @@ import lib/ui/dirty
 import lib/ui/vector
 import lib/language/ic/parser
 import lib/language/ic/compiler
+import lib/language/lc/compiler
 
 import lib/language/ic/term
 
 type Mode { SourceLanguage(); LambdaCalculus(); InteractionCalculus() }
 
 type TextStream = => Unit / emit[Char] at {global}
-record EvaluatorState[N](mode: Mode, sources: Map[Mode, TextStream], net: N, typing: Bool, errors: String)
+record EvaluatorState[N](mode: Mode, sources: Map[Mode, TextStream], net: N, errors: String)
 
 def map[A, B](state: EvaluatorState[A]) { f: A => B }: EvaluatorState[B] = state match {
-  case EvaluatorState(mode, sources, net, typing, errors) => {
-    EvaluatorState(mode, sources, f(net), typing, errors)
+  case EvaluatorState(mode, sources, net, errors) => {
+    EvaluatorState(mode, sources, f(net), errors)
   }
 }
 
@@ -51,51 +52,56 @@ def empty[N, C, O](): EvaluatorState[N] / NetModel[N, C, O] = {
   map = map.put(SourceLanguage(), emptyStream)
   map = map.put(LambdaCalculus(), emptyStream)
   map = map.put(InteractionCalculus(), emptyStream)
-  // EvaluatorState(SourceLanguage(), map, empty(), "")
-  EvaluatorState(InteractionCalculus(), map, do empty(), true, "")
+  // EvaluatorState(InteractionCalculus(), map, do empty(), "")
+  EvaluatorState(LambdaCalculus(), map, do empty(), "")
 }
 
 def report[E, N](proxy: on[E], rollback: EvaluatorState[N]) { prog: => EvaluatorState[N] / Exception[E] }: EvaluatorState[N] =
   try { prog() } with Exception[E] {
     def raise(exception: E, msg: String) = {
       println(msg)
-      EvaluatorState(rollback.mode, rollback.sources, rollback.net, rollback.typing, msg)
+      EvaluatorState(rollback.mode, rollback.sources, rollback.net, msg)
     }
   }
 
 def nextMode[N](state: EvaluatorState[N]): EvaluatorState[N] / Redraw = {
   do redrawFull()
   state match {
-    case EvaluatorState(SourceLanguage(), sources, net, typing, errors)      => EvaluatorState(LambdaCalculus(), sources, net, typing, errors)
-    case EvaluatorState(LambdaCalculus(), sources, net, typing, errors)      => EvaluatorState(InteractionCalculus(), sources, net, typing, errors)
-    case EvaluatorState(InteractionCalculus(), sources, net, typing, errors) => EvaluatorState(SourceLanguage(), sources, net, typing, errors)
+    case EvaluatorState(SourceLanguage(), sources, net, errors)      => EvaluatorState(LambdaCalculus(), sources, net, errors)
+    case EvaluatorState(LambdaCalculus(), sources, net, errors)      => EvaluatorState(InteractionCalculus(), sources, net, errors)
+    case EvaluatorState(InteractionCalculus(), sources, net, errors) => EvaluatorState(SourceLanguage(), sources, net, errors)
   }
 }
 
 def setSource[N](state: EvaluatorState[N], s: String): EvaluatorState[N] / Redraw = {
   // do redrawFull() // TODO?
   state match {
-    case EvaluatorState(mode, sources, net, typing, errors) => {
+    case EvaluatorState(mode, sources, net, errors) => {
       // this would have been so cool but would only work for linear ASCII input (no escape, arrow keys)
       // val currentStream = sources.getOrElse(mode){<>}
       // val newStream = box { do emit(c); currentStream() }
-      EvaluatorState(mode, sources.put(mode, box { s.each }), net, true, errors)
+      EvaluatorState(mode, sources.put(mode, box { s.each }), net, errors)
     }
   }
 }
 
 // compile + load + render
 def render[N, C, O](state: EvaluatorState[N]): EvaluatorState[N] / { NetModel[N, C, O], Redraw } = {
+  do redrawFull() // for errors
+
   with on[MissingValue].panic // should be impossible by now
   with on[WrongFormat].report(state)
   with returning::source[Char, EvaluatorState[N]] {
     (state.sources.get(state.mode).value)()
   }
-  do redrawCallee()
   state match {
-    case EvaluatorState(InteractionCalculus(), sources, net, typing, errors) => {
-      val net_ = do render(do load(net) { compile!() })
-      EvaluatorState(InteractionCalculus(), sources, net_, false, "")
+    case EvaluatorState(InteractionCalculus(), sources, net, errors) => {
+      val net_ = do render(do load(net) { ic::compile!() })
+      EvaluatorState(InteractionCalculus(), sources, net_, "")
+    }
+    case EvaluatorState(LambdaCalculus(), sources, net, errors) => {
+      val net_ = do render(do load(net) { lc::compile!() })
+      EvaluatorState(LambdaCalculus(), sources, net_, "")
     }
     case _ => <>
   }

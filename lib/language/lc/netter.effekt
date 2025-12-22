@@ -1,0 +1,61 @@
+// based on the Haskell implementation in my B.Sc. thesis (marvinborner/optimal-effects)
+
+import map
+
+import lib/net/net
+import lib/language/lc/term
+import lib/language/ic/term
+
+type Label = String
+record Context(out: Label, bindings: Map[String, List[Port]])
+effect port(prefix: String): Label
+
+def plumbing { prog: => Unit / port } = {
+  var i = 0
+  try prog()
+  with port { prefix =>
+    i = i + 1
+    resume(prefix ++ i.show)
+  }
+}
+
+def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
+  with plumbing
+  with exhaustively
+
+  val term = do read[Term]()
+  println("term: '${term.show}'")
+
+  def bind(bindings: Map[String, List[Port]], x: String): Label / Exception[WrongFormat] = {
+    val pk = do port("m")
+    val bound: List[Port] = bindings.getOrElse(x) { wrongFormat() }
+    do emit(Constructor(Port(pk, Neg()), bound, Multiplexer()))
+    pk
+  }
+
+  try term.cata
+  with TermF[Context] {
+    def sym(x) = {
+      val px = do port(x)
+      resume(Context(px, singletonGeneric(x, [Port(px, Pos())])))
+    }
+
+    def abs(x, b) = {
+      val Context(pb, bb) = b
+      val pk = do port("k")
+      val px = bb.bind(x)
+      do emit(Constructor(Port(pk, Pos()), [Port(px, Pos()), Port(pb, Neg())], LightTriangle()))
+      resume(Context(pk, bb.delete(x)))
+    }
+
+    def app(f, a) = {
+      val Context(pf, bf) = f
+      val Context(pa, ba) = a
+      val pk = do port("k")
+      do emit(Constructor(Port(pf, Neg()), [Port(pa, Neg()), Port(pk, Pos())], LightTriangle()))
+      resume(Context(pk, bf.union(ba)))
+    }
+  }
+
+  ()
+}
