@@ -69,7 +69,7 @@ extern def replaceWith(node: Node, by: Node) at io: Unit =
   jsWeb "${node}.replaceWith(${by})"
 
 extern def getAttribute(node: Node, key: String) at io: String =
-  jsWeb "${node}.getAttribute(${key})"
+  jsWeb "(${node}.getAttribute(${key}) || '')"
 
 extern def setAttribute(node: Node, key: String, value: String) at io: Node =
   jsWeb "(function() { ${node}.setAttribute(${key}, ${value}); return ${node} })()"

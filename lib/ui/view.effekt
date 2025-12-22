@@ -24,6 +24,7 @@ type Html[Ev] {
 
 type EventHandler[Ev] {
   OnClick(handler: Ev)
+  OnTick(handler: Ev)
   OnScroll(handler: Double => Ev at {})
   OnKeyUp(handler: String => Ev at {})
   OnDrag(handler: Vector => Ev at {})
@@ -48,7 +49,6 @@ effect tag(): Tag
 
 record View[St, Ev](
   update: Ev => Unit / { State[St], Redraw } at {io, global},
-  tick: Int => Unit / { State[St], Redraw } at {io, global},
   view: () => Html[Ev] / { State[St], tag } at {io, global}
 )
 
@@ -67,14 +67,20 @@ def tag(node: Node): Tag = on[WrongFormat].panic { node.getAttribute("data-tag")
 def tag(node: Node, tag: Tag): Node = node.setAttribute("data-tag", tag.show)
 
 def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
-  case View(update, tick, view) =>
+  case View(update, view) =>
+    val MS_TICK = 30 // tick every n ms
+
     val inbox = ref[List[Event[Ev]]](Nil())
     val state = ref(init)
     val dirty = ref(Dirty())
     val dirtyTags = ref[Set[Tag]](emptyGeneric())
+    val tickers = ref[List[=> Unit at {io, global}]](Nil())
 
     def mark(tag: Tag, dirty: Dirtiness) =
       if (dirty is Dirty()) dirtyTags.map { m => m.insert(tag) }
+
+    def onTick(element: Node, handler: => Unit at {io, global}) =
+      tickers.map { l => Cons(handler, l) }
 
     def send(tag: Tag, ev: Ev): Unit = inbox.set(Cons(Event(tag, ev), inbox.get))
 
@@ -82,6 +88,8 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
       handler.foreach {
         case OnClick(ev) =>
           element.onClick(box { send(element.tag, ev) })
+        case OnTick(ev) =>
+          element.onTick(box { send(element.tag, ev) })
         case OnScroll(ev) =>
           element.onScroll(box { delta => send(element.tag, ev(delta)) })
         case OnKeyUp(ev) =>
@@ -134,6 +142,7 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
 
       if (required) {
         with tagger
+        tickers.set(Nil())
         val rendered = statefully(state) { view() }.render
 
         if (dirty.get() is Dirty()) {
@@ -148,17 +157,13 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
       }
     }
 
+    val lastTime = ref(0)
     def tickLoop(timestamp: Int): Unit = {
-
-      // prioritize message handling over ticking/rendering
-      // if (inbox.get.isEmpty) {
-      //   with onTagRedraw { tag.mark(Dirty()) }
-      //   with onFullRedraw { dirty.set(true) }
-      //   statefully(state) { tick(timestamp) }
-      //   render()
-      //   requestAnimationFrame(box tickLoop)
-      // }
-      ()
+      if (timestamp - lastTime.get > MS_TICK) {
+        tickers.get.foreach { handler => handler() }
+        lastTime.set(timestamp)
+      }
+      requestAnimationFrame(box tickLoop)
     }
 
     def idleLoop(deadline: IdleDeadline): Unit / {} = {
@@ -173,8 +178,6 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
         }
 
         render()
-      } else {
-        // requestAnimationFrame(box tickLoop)
       }
 
       requestIdleCallback(box idleLoop)
@@ -182,5 +185,5 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
 
     render()
     requestIdleCallback(box idleLoop)
-    // requestAnimationFrame(box tickLoop)
+    requestAnimationFrame(box tickLoop)
 }

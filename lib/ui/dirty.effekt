@@ -5,17 +5,6 @@ interface Redraw {
   def redrawFull(): Unit
 }
 
-// /// dirt reification
-// def collect[R] { prog: => R / redraw }: Dirtiness = {
-//   val clean: Ref[Bool] = ref(true)
-
-//   try prog()
-//   with redraw { resume(clean.set(false)) }
-
-//   if (clean.get) Clean()
-//   else Dirty()
-// }
-
 def redraw[R] { callee: => Unit } { full: => Unit } { prog: => R / Redraw} =
   try prog()
   with Redraw {

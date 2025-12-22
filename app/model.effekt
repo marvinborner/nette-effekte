@@ -64,18 +64,24 @@ def report[E, N](proxy: on[E], rollback: EvaluatorState[N]) { prog: => Evaluator
     }
   }
 
-def nextMode[N](state: EvaluatorState[N]): EvaluatorState[N] = state match {
-  case EvaluatorState(SourceLanguage(), sources, net, typing, errors)      => EvaluatorState(LambdaCalculus(), sources, net, typing, errors)
-  case EvaluatorState(LambdaCalculus(), sources, net, typing, errors)      => EvaluatorState(InteractionCalculus(), sources, net, typing, errors)
-  case EvaluatorState(InteractionCalculus(), sources, net, typing, errors) => EvaluatorState(SourceLanguage(), sources, net, typing, errors)
+def nextMode[N](state: EvaluatorState[N]): EvaluatorState[N] / Redraw = {
+  do redrawFull()
+  state match {
+    case EvaluatorState(SourceLanguage(), sources, net, typing, errors)      => EvaluatorState(LambdaCalculus(), sources, net, typing, errors)
+    case EvaluatorState(LambdaCalculus(), sources, net, typing, errors)      => EvaluatorState(InteractionCalculus(), sources, net, typing, errors)
+    case EvaluatorState(InteractionCalculus(), sources, net, typing, errors) => EvaluatorState(SourceLanguage(), sources, net, typing, errors)
+  }
 }
 
-def setSource[N](state: EvaluatorState[N], s: String): EvaluatorState[N] = state match {
-  case EvaluatorState(mode, sources, net, typing, errors) => {
-    // this would have been so cool but would only work for linear ASCII input (no escape, arrow keys)
-    // val currentStream = sources.getOrElse(mode){<>}
-    // val newStream = box { do emit(c); currentStream() }
-    EvaluatorState(mode, sources.put(mode, box { s.each }), net, true, errors)
+def setSource[N](state: EvaluatorState[N], s: String): EvaluatorState[N] / Redraw = {
+  // do redrawFull() // TODO?
+  state match {
+    case EvaluatorState(mode, sources, net, typing, errors) => {
+      // this would have been so cool but would only work for linear ASCII input (no escape, arrow keys)
+      // val currentStream = sources.getOrElse(mode){<>}
+      // val newStream = box { do emit(c); currentStream() }
+      EvaluatorState(mode, sources.put(mode, box { s.each }), net, true, errors)
+    }
   }
 }
 

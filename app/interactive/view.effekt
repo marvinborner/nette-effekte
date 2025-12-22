@@ -67,6 +67,7 @@ def view(): Html[Event] / { Model[Canvas, CanvasOp], tag } = {
         OnResize(box { v => SetCanvasSize(v) }),
         OnDrag(box { v => PanCanvas(v) }),
         OnScroll(box { d => ZoomCanvas(d) }),
+        OnTick(StepAnimation()),
         // OnMouseDown(Typing(true)), // TODO: to prevent panning lag
         OnClick(Typing(false)),
       ], ["right", "inet"], do getContext()),
@@ -83,7 +84,6 @@ def start() = {
     documentBody.appendChild(newDiv)
   }
 
-  val MS_TICK = 100 // tick every n ms
   val lastTime = ref(0)
 
   with interactive
@@ -92,14 +92,6 @@ def start() = {
       with interactive
       with model[Canvas, CanvasOp, Unit, NetState]
       ev.dispatch()
-    },
-    tick = box { timestamp =>
-      if (timestamp - lastTime.get > MS_TICK) {
-        with interactive
-        with model[Canvas, CanvasOp, Unit, NetState]
-        StepAnimation().dispatch()
-        lastTime.set(timestamp)
-      }
     },
     view = box {
       with interactive
