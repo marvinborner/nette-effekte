@@ -8,7 +8,7 @@ type Label = Int // TODO: Ref[Int]?
 record Agent(name: String, pp: Label, aux: List[Label], kind: Kind, pos: Vector)
 record Wire(from: Label, to: Label)
 
-def mapPosition(agent: Agent) { f: Vector => Vector }: Agent = agent match {
+def map(agent: Agent) { f: Vector => Vector }: Agent = agent match {
   case Agent(name, pp, aux, kind, pos) => Agent(name, pp, aux, kind, f(pos))
 }
 
@@ -30,6 +30,9 @@ def attachedTo(agent: Agent, wire: Wire) =
   wire.from == agent.pp || agent.aux.contains(wire.from) { (a, b) => a == b }
  || wire.to == agent.pp || agent.aux.contains(wire.to)   { (a, b) => a == b }
 
+def hasLabel(agent: Agent, label: Label) =
+  agent.pp == label || agent.aux.any { l => l == label }
+
 def attachedWires(agent: Agent) { wires: => Unit / WireStream }: Unit / WireStream =
   for { wires() } { wire =>
     if (agent.attachedTo(wire))
@@ -40,6 +43,28 @@ def agentPositions() { agents: => Unit / AgentStream }: Unit / emit[Vector] =
   for { agents() } { agent =>
     do emit(agent.pos)
   }
+
+def adverseAgents(agent: Agent, wire: Wire) { agents: => Unit / AgentStream }: Unit / AgentStream =
+  with val a = for { agents() }
+  if (a.pp != agent.pp && a.attachedTo(wire)) do emit(a)
+
+/// gives rough positions based on agent center, not pp/aux[i]
+def fromTo(wire: Wire) { agents: => Unit / AgentStream }: (Vector, Vector) = {
+  var fromTo = (None[Vector](), None[Vector]())
+  try agents()
+  with emit[Agent] { agent =>
+    if (agent.hasLabel(wire.from)) fromTo = (Some(agent.pos), fromTo.second)
+    if (agent.hasLabel(wire.to)) fromTo = (fromTo.first, Some(agent.pos))
+
+    // TODO: how does the `or`/`|` work in scrutinees?
+    if (fromTo.first is None()) resume(())
+    else if (fromTo.second is None()) resume(())
+  }
+  fromTo match {
+    case (Some(from), Some(to)) => (from, to)
+    case _ => panic("no matching positions found for wire (impossible)")
+  }
+}
 
 // TODO: reuse returning::collect from below
 def collect { prog: => Unit / NetStream }: ReifiedNet = {

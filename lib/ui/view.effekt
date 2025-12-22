@@ -26,15 +26,18 @@ type EventHandler[Ev] {
 
 extern type IdleDeadline
 
-extern def requestIdleCallback(callback: (IdleDeadline) => Unit at {io, global}) at io: Unit =
+extern def requestIdleCallback(callback: IdleDeadline => Unit at {io, global}) at io: Unit =
   jsWeb "window.requestIdleCallback(deadline => $effekt.runToplevel((ks, k) => ${callback}(deadline, ks, k)))"
+
+extern def requestAnimationFrame(callback: Int => Unit at {io, global}) at io: Unit =
+  jsWeb "window.requestAnimationFrame(timestamp => $effekt.runToplevel((ks, k) => ${callback}(timestamp, ks, k)))"
 
 extern def style(path: String) at io: Unit =
   jsWeb "document.head.insertAdjacentHTML('beforeend', '<link rel=\"stylesheet\" href=${path} />')"
 
 record View[St, Ev](
-  update: Ev => Dirtiness / State[St] at {io, global},
-  tick: () => Dirtiness / State[St] at {io, global},
+  update: Ev => Unit / { State[St], redraw } at {io, global},
+  tick: Int => Unit / { State[St], redraw } at {io, global},
   view: () => Html[Ev] / State[St] at {io, global}
 )
 
@@ -89,29 +92,38 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
     def render(): Unit = {
       val rendered = statefully(state) { view() }.render
       if (dirty.get()) {
-        root.clear;
-        root.appendChild(rendered); ()
+        root.clear
+        root.appendChild(rendered)
+        ()
       }
       dirty.set(false)
-      ()
     }
 
-    def loop(deadline: IdleDeadline): Unit = {
+    def idleLoop(deadline: IdleDeadline): Unit = {
+      with onRedraw { dirty.set(true) }
+
       val messages = inbox.get.reverse
       inbox.set(Nil())
 
       if (messages.nonEmpty) {
         messages.foreach { ev =>
           with statefully(state)
-          if (update(ev) is Dirty()) dirty.set(true)
+          update(ev)
         }
 
         render()
       }
-      // statefully(state) { tick() }
-      requestIdleCallback(box loop)
+      requestIdleCallback(box idleLoop)
+    }
+
+    def tickLoop(timestamp: Int): Unit = {
+      with onRedraw { dirty.set(true) }
+
+      statefully(state) { tick(timestamp) }
+      requestAnimationFrame(box tickLoop)
     }
 
     render()
-    requestIdleCallback(box loop)
+    requestIdleCallback(box idleLoop)
+    requestAnimationFrame(box tickLoop)
 }

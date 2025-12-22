@@ -14,11 +14,11 @@ import lib/language/ic/term
 type Mode { SourceLanguage(); LambdaCalculus(); InteractionCalculus() }
 
 type TextStream = => Unit / emit[Char] at {global}
-record EvaluatorState[N](mode: Mode, sources: Map[Mode, TextStream], net: N, errors: String)
+record EvaluatorState[N](mode: Mode, sources: Map[Mode, TextStream], net: N, typing: Bool, errors: String)
 
 def map[A, B](state: EvaluatorState[A]) { f: A => B }: EvaluatorState[B] = state match {
-  case EvaluatorState(mode, sources, net, errors) => {
-    EvaluatorState(mode, sources, f(net), errors)
+  case EvaluatorState(mode, sources, net, typing, errors) => {
+    EvaluatorState(mode, sources, f(net), typing, errors)
   }
 }
 
@@ -26,12 +26,13 @@ def modifyState[N] { f: N => N }: Unit / State[EvaluatorState[N]] =
   do setState((do getState()).map { net => f(net) })
 
 interface Model[C, O] {
-  def render(): Dirtiness
-  def stepReduction(): Dirtiness
-  def stepAnimation(): Dirtiness
-  def nextMode(): Dirtiness
-  def setSource(s: String): Dirtiness
-  def onContext(op: O): Dirtiness
+  def typing(y: Bool): Unit / redraw
+  def render(): Unit / redraw
+  def stepReduction(): Unit / redraw
+  def stepAnimation(): Unit / redraw
+  def nextMode(): Unit / redraw
+  def setSource(s: String): Unit / redraw
+  def onContext(op: O): Unit / redraw
 
   def getMode(): Mode
   def getSource(mode: Mode): TextStream
@@ -52,31 +53,41 @@ def empty[N, C, O](): EvaluatorState[N] / NetModel[N, C, O] = {
   map = map.put(LambdaCalculus(), emptyStream)
   map = map.put(InteractionCalculus(), emptyStream)
   // EvaluatorState(SourceLanguage(), map, empty(), "")
-  EvaluatorState(InteractionCalculus(), map, do empty(), "")
+  EvaluatorState(InteractionCalculus(), map, do empty(), true, "")
 }
 
 def report[E, N](proxy: on[E], rollback: EvaluatorState[N]) { prog: => EvaluatorState[N] / Exception[E] }: EvaluatorState[N] =
   try { prog() } with Exception[E] {
     def raise(exception: E, msg: String) = {
       println(msg)
-      EvaluatorState(rollback.mode, rollback.sources, rollback.net, msg)
+      EvaluatorState(rollback.mode, rollback.sources, rollback.net, rollback.typing, msg)
     }
   }
 
 def nextMode[N](state: EvaluatorState[N]): EvaluatorState[N] = state match {
-  case EvaluatorState(SourceLanguage(), sources, net, errors)      => EvaluatorState(LambdaCalculus(), sources, net, errors)
-  case EvaluatorState(LambdaCalculus(), sources, net, errors)      => EvaluatorState(InteractionCalculus(), sources, net, errors)
-  case EvaluatorState(InteractionCalculus(), sources, net, errors) => EvaluatorState(SourceLanguage(), sources, net, errors)
+  case EvaluatorState(SourceLanguage(), sources, net, typing, errors)      => EvaluatorState(LambdaCalculus(), sources, net, typing, errors)
+  case EvaluatorState(LambdaCalculus(), sources, net, typing, errors)      => EvaluatorState(InteractionCalculus(), sources, net, typing, errors)
+  case EvaluatorState(InteractionCalculus(), sources, net, typing, errors) => EvaluatorState(SourceLanguage(), sources, net, typing, errors)
 }
 
 def setSource[N](state: EvaluatorState[N], s: String): EvaluatorState[N] = state match {
-  case EvaluatorState(mode, sources, net, errors) => {
+  case EvaluatorState(mode, sources, net, typing, errors) => {
     // this would have been so cool but would only work for linear ASCII input (no escape, arrow keys)
     // val currentStream = sources.getOrElse(mode){<>}
     // val newStream = box { do emit(c); currentStream() }
-    EvaluatorState(mode, sources.put(mode, box { s.each }), net, errors)
+    EvaluatorState(mode, sources.put(mode, box { s.each }), net, true, errors)
   }
 }
+
+def typing[N](state: EvaluatorState[N], y: Bool): EvaluatorState[N] = state match {
+  case EvaluatorState(mode, sources, net, typing, errors) => {
+    println("typing: ${y.show}")
+    EvaluatorState(mode, sources, net, y, errors)
+  }
+}
+
+def notTyping[N] { prog: => Unit }: Unit / State[EvaluatorState[N]] =
+  if (not((do getState()).typing)) prog()
 
 // compile + load + render
 def render[N, C, O](state: EvaluatorState[N]): EvaluatorState[N] / { NetModel[N, C, O], redraw } = {
@@ -87,9 +98,9 @@ def render[N, C, O](state: EvaluatorState[N]): EvaluatorState[N] / { NetModel[N,
   }
   do redraw()
   state match {
-    case EvaluatorState(InteractionCalculus(), sources, net, errors) => {
+    case EvaluatorState(InteractionCalculus(), sources, net, typing, errors) => {
       val net_ = do render(do load(net) { compile!() })
-      EvaluatorState(InteractionCalculus(), sources, net_, "")
+      EvaluatorState(InteractionCalculus(), sources, net_, false, "")
     }
     case _ => <>
   }
@@ -100,12 +111,13 @@ def model[C, O, R, N] { prog: => R / Model[C, O] }: R / { State[EvaluatorState[N
 
   try { prog() }
   with Model[C, O] {
-    def render() = resume(collect { modifyState { st => st.render } })
+    def typing(y) = resume { modifyState { st => st.typing(y) } }
+    def render() = resume { modifyState { st => st.render } }
     def stepReduction() = <>
-    def stepAnimation() = resume(collect { modifyState { net => do render(net) } })
-    def nextMode() = resume(collect { modifyState { st => st.nextMode } })
-    def setSource(c) = resume(collect { modifyState { st => st.setSource(c) } })
-    def onContext(op) = resume(collect { modifyState { net => do operation(net, op) } })
+    def stepAnimation() = resume { notTyping { modifyState { net => do render(net) } } }
+    def nextMode() = resume { modifyState { st => st.nextMode } }
+    def setSource(c) = resume { modifyState { st => st.setSource(c) } }
+    def onContext(op) = resume { modifyState { net => do operation(net, op) } }
 
     def getMode() = resume((do getState()).mode)
     def getSource(mode) = {

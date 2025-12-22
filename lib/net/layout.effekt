@@ -8,26 +8,21 @@ import lib/net/net
 def centralGravitation(agent: Agent): Vector / Force =
   Vector(0.0, 0.0).attraction(agent.pos)
 
-def coulombForce(agent: Agent) { agents: => Unit / AgentStream }: Vector / Force = {
+def coulombForce(agent: Agent) { agents: => Unit / AgentStream }: Vector / Force =
   with forceSum
   with source[Vector] { agentPositions {agents} }
-
   with exhaustively
   do emit(repulsion(do read[Vector], agent.pos))
-}
 
-def geometry(wire: Wire) { agents: => Unit / AgentStream }: Tuple2[Vector, Vector] = {
-  <> // based on the position of both agents its connected to
+def geometry(wire: Wire) { agents: => Unit / AgentStream }: (Vector, Vector) = {
+  val (from, to) = wire.fromTo {agents}
+  (from, from.direction(to))
 }
 
 def springTargets(wire: Wire, agent: Agent, length: Double) { agents: => Unit / AgentStream }: Unit / emit[Vector] = {
   val (pos, direction) = wire.geometry {agents}
   do emit((pos + direction.normalize) * length) // TODO: should this somehow return multiple vectors?
 }
-
-def adverseAgents(agent: Agent, wire: Wire) { agents: => Unit / AgentStream }: Unit / AgentStream =
-  with val a = for { agents() }
-  if (a.pp != agent.pp && a.attachedTo(wire)) do emit(a)
 
 def wireForce(agent: Agent, length: Double) { agents: => Unit / AgentStream } { f: => Unit / WireStream }: Unit / { Force, emit[Vector] } =
   with val wire = for { f() }
@@ -54,16 +49,17 @@ def withForce(position: Vector) { f: => Vector / Force } { s: Double => Double }
     def strength(x) = resume(s(x))
   }
 
+// TODO: optimize magic numbers
 def layoutStep(agent: Agent) { net: => Unit / NetStream }: Agent = {
   val cf = withForce(agent.pos) { coulombForce(agent) { agents{net} } } {
-    x => 0.2 * min(10.0, 100.0 / (pow(x, 2) + 0.1)) }
+    x => min(1000.0, 100000.0 / (pow(x, 2) + 1000.0)) }
   val cgf = withForce(cf) { agent.centralGravitation } {
-    x => 0.2 * min(10.0, x * 0.01) }
-  // val sf = withForce(cgf) { agent.springForce(1.5) } {
-  //   x => 0.2 * min(10.0, x * 0.9) }
+    x => min(1000.0, x * 0.0001) }
+  val sf = withForce(cgf) { agent.springForce(150.0) {net} } {
+    x => min(1000.0, x * 0.009) }
 
-  println("old: ${agent.pos.x.show},${agent.pos.y.show} new: ${cgf.x.show},${cgf.y.show}")
-  agent.mapPosition { _ => cgf }
+  // println("old: ${agent.pos.x.show},${agent.pos.y.show} new: ${sf.x.show},${sf.y.show}")
+  agent.map { _ => sf }
   // angularMomentum(position)
 }
 

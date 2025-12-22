@@ -3,18 +3,7 @@ import lib/ui/vector
 import lib/ui/context
 import lib/ui/geometry
 
-interface Handler {
-  def size(canvas: Canvas, size: Vector): Canvas
-}
-
 record Canvas(geometry: Geometry, size: Vector, position: Vector, scale: Double)
-
-def handler[R] { prog: => R / Handler } = {
-  try prog()
-  with Handler {
-    def size(canvas, size) = <>
-  }
-}
 
 def empty() = Canvas(empty(), Vector(1000.0, 1000.0), Vector(0.0, 0.0), 1.0)
 
@@ -49,7 +38,6 @@ def path(ctx: Context) { draw: => Unit } = {
 
 def transforming(canvas: Canvas, ctx: Context) { draw: => Unit } = {
   with ctx.restore
-  println(canvas.scale)
   ctx.translate(canvas.size.x / 2.0, canvas.size.y / 2.0)
   ctx.scale(canvas.scale * pixelRatio, canvas.scale * pixelRatio)
   ctx.translate(-1.0 * canvas.position.x, -1.0 * canvas.position.y)

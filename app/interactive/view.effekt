@@ -27,6 +27,7 @@ def textarea[Ev](handler: List[EventHandler[Ev]], classes: List[String], text: T
 // ---
 
 type Event {
+  Typing(y: Bool);
   Render();
   StepReduction();
   StepAnimation();
@@ -37,7 +38,8 @@ type Event {
   ZoomCanvas(d: Double);
 }
 
-def dispatch(msg: Event): Dirtiness / Model[Canvas, CanvasOp] = msg match {
+def dispatch(msg: Event): Unit / { Model[Canvas, CanvasOp], redraw }  = msg match {
+  case Typing(y)        => do typing(y)
   case Render()         => do render()
   case StepReduction()  => do stepReduction()
   case StepAnimation()  => do stepAnimation()
@@ -57,12 +59,13 @@ def view(): Html[Event] / Model[Canvas, CanvasOp] = {
       button([ OnClick(StepReduction()) ], [], [ text("Step") ]),
     ]),
     div([ "split" ], [
-      textarea([ OnKeyUp(box { s => SetSource(s) }) ], ["left", "code"], do getSource(do getMode())),
+      textarea([ OnKeyUp(box { s => SetSource(s) }), OnClick(Typing(true)) ], ["left", "code"], do getSource(do getMode())),
       canvas([
         OnResize(box { v => SetCanvasSize(v) }),
         OnDrag(box { v => PanCanvas(v) }),
         OnScroll(box { d => ZoomCanvas(d) }),
-        OnClick(StepAnimation()),
+        // OnMouseDown(Typing(true)), // TODO: to prevent panning lag
+        OnClick(Typing(false)),
       ], ["right", "inet"], do getContext()),
     ]),
     div([ "errors" ], [ text(do getErrors()) ]),
@@ -77,17 +80,23 @@ def start() = {
     documentBody.appendChild(newDiv)
   }
 
+  val MS_TICK = 30 // tick every n ms
+  val lastTime = ref(0)
+
   with interactive
   run(appDiv, model::empty[NetState, Canvas, CanvasOp](), View(
     update = box { ev =>
       with interactive
-      with model[Canvas, CanvasOp, Dirtiness, NetState]
+      with model[Canvas, CanvasOp, Unit, NetState]
       ev.dispatch()
     },
-    tick = box {
+    tick = box { timestamp =>
       with interactive
-      with model[Canvas, CanvasOp, Dirtiness, NetState]
-      StepAnimation().dispatch()
+      with model[Canvas, CanvasOp, Unit, NetState]
+      if (timestamp - lastTime.get > MS_TICK) {
+        StepAnimation().dispatch()
+        lastTime.set(timestamp)
+      }
     },
     view = box {
       with interactive

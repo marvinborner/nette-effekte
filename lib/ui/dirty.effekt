@@ -14,3 +14,8 @@ def collect[R] { prog: => R / redraw }: Dirtiness = {
   if (clean.get) Clean()
   else Dirty()
 }
+
+def onRedraw[R] { handler: => Unit } { prog: => R / redraw } = {
+  try prog()
+  with redraw { resume(handler()) }
+}
