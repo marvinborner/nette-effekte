@@ -68,7 +68,7 @@ def tag(node: Node, tag: Tag): Node = node.setAttribute("data-tag", tag.show)
 
 def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
   case View(update, view) =>
-    val MS_TICK = 30 // tick every n ms
+    val MS_TICK = 100 // tick every n ms
 
     val inbox = ref[List[Event[Ev]]](Nil())
     val state = ref(init)
@@ -126,13 +126,14 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
       }
     }
 
-    def merge(current: Node, fresh: Node) =
-      with on[MissingValue].panic // impossible by construction
-      dirtyTags.get.foreach { tag =>
+    def merge(current: Node, fresh: Node) = {
+      with on[MissingValue].ignore // can happen on race conditions
+      dirtyTags.get.toList.sort.reverse.foreach { tag =>
         current.querySelector("[data-tag='${tag.show}']").value.replaceWith(
           fresh.querySelector("[data-tag='${tag.show}']").value
         )
       }
+    }
 
     // renders the app with the current state
     def render(): Unit = {

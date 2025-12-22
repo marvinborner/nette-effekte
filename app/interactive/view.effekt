@@ -60,12 +60,12 @@ def view(): Html[Event] / { Model[Canvas, CanvasOp], tag } = {
       textarea([
         OnKeyUp(box { s => SetSource(s) }),
       ], ["left", "code"], do getSource(do getMode())),
-      canvas([
-        OnResize(box { v => SetCanvasSize(v) }),
-        OnDrag(box { v => PanCanvas(v) }),
-        OnScroll(box { d => ZoomCanvas(d) }),
-        OnTick(StepAnimation()),
-      ], ["right", "inet"], do getContext()),
+      div([ OnDrag(box { v => PanCanvas(v) }), OnScroll(box { d => ZoomCanvas(d) }) ], ["right"], [
+        canvas([
+          OnResize(box { v => SetCanvasSize(v) }),
+          OnTick(StepAnimation()),
+        ], ["inet"], do getContext())
+      ]),
     ]),
     div([ "errors" ], [ text(do getErrors()) ]),
   ])
