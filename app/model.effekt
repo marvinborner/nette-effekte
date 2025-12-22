@@ -26,13 +26,13 @@ def modifyState[N] { f: N => N }: Unit / State[EvaluatorState[N]] =
   do setState((do getState()).map { net => f(net) })
 
 interface Model[C, O] {
-  def typing(y: Bool): Unit / redraw
-  def render(): Unit / redraw
-  def stepReduction(): Unit / redraw
-  def stepAnimation(): Unit / redraw
-  def nextMode(): Unit / redraw
-  def setSource(s: String): Unit / redraw
-  def onContext(op: O): Unit / redraw
+  def typing(y: Bool): Unit / Redraw
+  def render(): Unit / Redraw
+  def stepReduction(): Unit / Redraw
+  def stepAnimation(): Unit / Redraw
+  def nextMode(): Unit / Redraw
+  def setSource(s: String): Unit / Redraw
+  def onContext(op: O): Unit / Redraw
 
   def getMode(): Mode
   def getSource(mode: Mode): TextStream
@@ -90,13 +90,13 @@ def notTyping[N] { prog: => Unit }: Unit / State[EvaluatorState[N]] =
   if (not((do getState()).typing)) prog()
 
 // compile + load + render
-def render[N, C, O](state: EvaluatorState[N]): EvaluatorState[N] / { NetModel[N, C, O], redraw } = {
+def render[N, C, O](state: EvaluatorState[N]): EvaluatorState[N] / { NetModel[N, C, O], Redraw } = {
   with on[MissingValue].panic // should be impossible by now
   with on[WrongFormat].report(state)
   with returning::source[Char, EvaluatorState[N]] {
     (state.sources.get(state.mode).value)()
   }
-  do redraw()
+  do redrawCallee()
   state match {
     case EvaluatorState(InteractionCalculus(), sources, net, typing, errors) => {
       val net_ = do render(do load(net) { compile!() })

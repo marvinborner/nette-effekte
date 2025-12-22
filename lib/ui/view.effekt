@@ -1,5 +1,6 @@
 // based on exercise 5 template by @jiribenes (MIT)
 
+import set
 import ref
 import string
 import test
@@ -10,10 +11,15 @@ import lib/ui/dirty
 import lib/ui/canvas
 import lib/ui/vector
 
+type Tag = Int
+
+record Event[Ev](tag: Tag, event: Ev)
+
 type Html[Ev] {
   Text(content: String);
   Canvas(classes: List[String], handler: List[EventHandler[Ev]], canvas: Canvas)
   Element(tag: String, classes: List[String], handler: List[EventHandler[Ev]], children: List[Html[Ev]], value: String)
+  Tagged(element: Html[Ev], tag: Tag)
 }
 
 type EventHandler[Ev] {
@@ -26,6 +32,9 @@ type EventHandler[Ev] {
 
 extern type IdleDeadline
 
+extern def async(callback: => Unit at {io, global}) at io: Unit =
+  jsWeb "setTimeout(() => $effekt.runToplevel((ks, k) => ${callback}(ks, k)), 0)"
+
 extern def requestIdleCallback(callback: IdleDeadline => Unit at {io, global}) at io: Unit =
   jsWeb "window.requestIdleCallback(deadline => $effekt.runToplevel((ks, k) => ${callback}(deadline, ks, k)))"
 
@@ -35,39 +44,60 @@ extern def requestAnimationFrame(callback: Int => Unit at {io, global}) at io: U
 extern def style(path: String) at io: Unit =
   jsWeb "document.head.insertAdjacentHTML('beforeend', '<link rel=\"stylesheet\" href=${path} />')"
 
+effect tag(): Tag
+
 record View[St, Ev](
-  update: Ev => Unit / { State[St], redraw } at {io, global},
-  tick: Int => Unit / { State[St], redraw } at {io, global},
-  view: () => Html[Ev] / State[St] at {io, global}
+  update: Ev => Unit / { State[St], Redraw } at {io, global},
+  tick: Int => Unit / { State[St], Redraw } at {io, global},
+  view: () => Html[Ev] / { State[St], tag } at {io, global}
 )
+
+/// in order for every tag to be equivalent on redraw, this tagger assumes elements to be static
+def tagger[R] { prog: => R / tag }: R = {
+  var tag = 0
+  try prog()
+  with tag {
+    tag = tag + 1
+    resume(tag)
+  }
+}
+
+def tag![Ev](element: Html[Ev]): Html[Ev] / tag = Tagged(element, do tag())
+def tag(node: Node): Tag = on[WrongFormat].panic { node.getAttribute("data-tag").toInt }
+def tag(node: Node, tag: Tag): Node = node.setAttribute("data-tag", tag.show)
 
 def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
   case View(update, tick, view) =>
-    val inbox = ref[List[Ev]](Nil())
+    val inbox = ref[List[Event[Ev]]](Nil())
     val state = ref(init)
-    val dirty = ref(true)
+    val dirty = ref(Dirty())
+    val dirtyTags = ref[Set[Tag]](emptyGeneric())
 
-    def send(ev: Ev): Unit = inbox.set(Cons(ev, inbox.get))
+    def mark(tag: Tag, dirty: Dirtiness) =
+      if (dirty is Dirty()) dirtyTags.map { m => m.insert(tag) }
+
+    def send(tag: Tag, ev: Ev): Unit = inbox.set(Cons(Event(tag, ev), inbox.get))
 
     def handleEvent(element: Node, handler: List[EventHandler[Ev]]) = {
       handler.foreach {
         case OnClick(ev) =>
-          element.onClick(box { send(ev) })
+          element.onClick(box { send(element.tag, ev) })
         case OnScroll(ev) =>
-          element.onScroll(box { delta => send(ev(delta)) })
+          element.onScroll(box { delta => send(element.tag, ev(delta)) })
         case OnKeyUp(ev) =>
-          element.onKeyUp(box { key => send(ev(element.value)) })
+          element.onKeyUp(box { key => send(element.tag, ev(element.value)) })
         case OnDrag(ev) =>
-          element.onDrag(box { (x, y) => send(ev(Vector(x, y))) })
+          element.onDrag(box { (x, y) => send(element.tag, ev(Vector(x, y))) })
         case OnResize(ev) =>
           element.onResize(box { (initial, width, height) =>
-            if (not(initial)) send(ev(Vector(width, height)))
+            if (not(initial)) send(element.tag, ev(Vector(width, height)))
           })
       }
     }
 
     // renders the Node to the DOM
     def render(html: Html[Ev]): Node = html match {
+      case Tagged(html, tag) => html.render().tag(tag)
       case Text(content) => createTextNode(content)
       case Element(tag, classes, handler, children, value) =>
         val el = createElement(tag)
@@ -88,42 +118,69 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
       }
     }
 
+    def merge(current: Node, fresh: Node) =
+      with on[MissingValue].panic // impossible by construction
+      dirtyTags.get.foreach { tag =>
+        current.querySelector("[data-tag='${tag.show}']").value.replaceWith(
+          fresh.querySelector("[data-tag='${tag.show}']").value
+        )
+      }
+
     // renders the app with the current state
     def render(): Unit = {
-      val rendered = statefully(state) { view() }.render
-      if (dirty.get()) {
-        root.clear
-        root.appendChild(rendered)
-        ()
+      var required = false // TODO: again: how does OR work here??
+      if (dirty.get() is Dirty()) required = true
+      if (dirtyTags.get.nonEmpty) required = true
+
+      if (required) {
+        with tagger
+        val rendered = statefully(state) { view() }.render
+
+        if (dirty.get() is Dirty()) {
+          root.clear
+          root.appendChild(rendered)
+          ()
+        }
+        else root.merge(rendered)
+
+        dirty.set(Clean())
+        dirtyTags.set(emptyGeneric())
       }
-      dirty.set(false)
     }
 
-    def idleLoop(deadline: IdleDeadline): Unit = {
-      with onRedraw { dirty.set(true) }
+    def tickLoop(timestamp: Int): Unit = {
 
+      // prioritize message handling over ticking/rendering
+      // if (inbox.get.isEmpty) {
+      //   with onTagRedraw { tag.mark(Dirty()) }
+      //   with onFullRedraw { dirty.set(true) }
+      //   statefully(state) { tick(timestamp) }
+      //   render()
+      //   requestAnimationFrame(box tickLoop)
+      // }
+      ()
+    }
+
+    def idleLoop(deadline: IdleDeadline): Unit / {} = {
       val messages = inbox.get.reverse
       inbox.set(Nil())
 
       if (messages.nonEmpty) {
-        messages.foreach { ev =>
+        messages.foreach { case Event(tag, ev) =>
+          with redraw { tag.mark(Dirty()) } { dirty.set(Dirty()) }
           with statefully(state)
           update(ev)
         }
 
         render()
+      } else {
+        // requestAnimationFrame(box tickLoop)
       }
+
       requestIdleCallback(box idleLoop)
-    }
-
-    def tickLoop(timestamp: Int): Unit = {
-      with onRedraw { dirty.set(true) }
-
-      statefully(state) { tick(timestamp) }
-      requestAnimationFrame(box tickLoop)
     }
 
     render()
     requestIdleCallback(box idleLoop)
-    requestAnimationFrame(box tickLoop)
+    // requestAnimationFrame(box tickLoop)
 }

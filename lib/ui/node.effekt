@@ -65,6 +65,12 @@ extern def createTextNode(text: String) at io: Node =
 extern def appendChild(node: Node, child: Node) at io: Node =
   jsWeb "${node}.appendChild(${child})"
 
+extern def replaceWith(node: Node, by: Node) at io: Unit =
+  jsWeb "${node}.replaceWith(${by})"
+
+extern def getAttribute(node: Node, key: String) at io: String =
+  jsWeb "${node}.getAttribute(${key})"
+
 extern def setAttribute(node: Node, key: String, value: String) at io: Node =
   jsWeb "(function() { ${node}.setAttribute(${key}, ${value}); return ${node} })()"
 
@@ -80,6 +86,9 @@ extern def setSize(node: Node, width: Double, height: Double) at io: Unit =
 extern def addClass(node: Node, class: String) at io: Node =
   jsWeb "(function() { ${node}.classList.add(${class}) })()"
 
+extern def unsafeQuerySelector(node: Node, query: String) at io: Node =
+  jsWeb "${node}.querySelector(${query})"
+
 extern def unsafeGetElementById(id: String) at io: Node =
   jsWeb "document.getElementById(${id})"
 
@@ -88,6 +97,11 @@ extern def value(node: Node) at io: String =
 
 def getElementById(id: String): Option[Node] = {
   val unsafeElement = unsafeGetElementById(id)
+  undefinedToOption(unsafeElement)
+}
+
+def querySelector(node: Node, query: String): Option[Node] = {
+  val unsafeElement = node.unsafeQuerySelector(query)
   undefinedToOption(unsafeElement)
 }
 

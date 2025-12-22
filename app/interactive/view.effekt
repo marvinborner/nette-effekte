@@ -9,20 +9,20 @@ import app/model
 
 def text[Ev](content: String) = Text[Ev](content)
 
-def button[Ev](handler: List[EventHandler[Ev]], classes: List[String], children: List[Html[Ev]]) =
-  Element("button", classes, handler, children, "")
+def button[Ev](handler: List[EventHandler[Ev]], classes: List[String], children: List[Html[Ev]]): Html[Ev] / tag =
+  Element("button", classes, handler, children, "").tag!
 
-def div[Ev](handler: List[EventHandler[Ev]], classes: List[String], children: List[Html[Ev]]) =
-  Element("div", classes, handler, children, "")
+def div[Ev](handler: List[EventHandler[Ev]], classes: List[String], children: List[Html[Ev]]): Html[Ev] / tag =
+  Element("div", classes, handler, children, "").tag!
 
-def div[Ev](classes: List[String], children: List[Html[Ev]]): Html[Ev] =
-  div([], classes, children)
+def div[Ev](classes: List[String], children: List[Html[Ev]]): Html[Ev] / tag =
+  div([], classes, children).tag!
 
-def canvas[Ev](handler: List[EventHandler[Ev]], classes: List[String], canvas: Canvas): Html[Ev] =
-  Canvas(classes, handler, canvas)
+def canvas[Ev](handler: List[EventHandler[Ev]], classes: List[String], canvas: Canvas): Html[Ev] / tag =
+  Canvas(classes, handler, canvas).tag!
 
-def textarea[Ev](handler: List[EventHandler[Ev]], classes: List[String], text: TextStream): Html[Ev] =
-  Element("textarea", classes, handler, [], collect { text() })
+def textarea[Ev](handler: List[EventHandler[Ev]], classes: List[String], text: TextStream): Html[Ev] / tag =
+  Element("textarea", classes, handler, [], collect { text() }).tag!
 
 // ---
 
@@ -38,7 +38,7 @@ type Event {
   ZoomCanvas(d: Double);
 }
 
-def dispatch(msg: Event): Unit / { Model[Canvas, CanvasOp], redraw }  = msg match {
+def dispatch(msg: Event): Unit / { Model[Canvas, CanvasOp], Redraw }  = msg match {
   case Typing(y)        => do typing(y)
   case Render()         => do render()
   case StepReduction()  => do stepReduction()
@@ -50,7 +50,7 @@ def dispatch(msg: Event): Unit / { Model[Canvas, CanvasOp], redraw }  = msg matc
   case ZoomCanvas(d)    => do onContext(Zoom(d))
 }
 
-def view(): Html[Event] / Model[Canvas, CanvasOp] = {
+def view(): Html[Event] / { Model[Canvas, CanvasOp], tag } = {
   div([ "grid" ], [
     div([ "menu" ], [
       text("Nette Effekte"),
@@ -59,7 +59,10 @@ def view(): Html[Event] / Model[Canvas, CanvasOp] = {
       button([ OnClick(StepReduction()) ], [], [ text("Step") ]),
     ]),
     div([ "split" ], [
-      textarea([ OnKeyUp(box { s => SetSource(s) }), OnClick(Typing(true)) ], ["left", "code"], do getSource(do getMode())),
+      textarea([
+        OnKeyUp(box { s => SetSource(s) }),
+        OnClick(Typing(true))
+      ], ["left", "code"], do getSource(do getMode())),
       canvas([
         OnResize(box { v => SetCanvasSize(v) }),
         OnDrag(box { v => PanCanvas(v) }),
@@ -80,7 +83,7 @@ def start() = {
     documentBody.appendChild(newDiv)
   }
 
-  val MS_TICK = 30 // tick every n ms
+  val MS_TICK = 100 // tick every n ms
   val lastTime = ref(0)
 
   with interactive
@@ -91,9 +94,9 @@ def start() = {
       ev.dispatch()
     },
     tick = box { timestamp =>
-      with interactive
-      with model[Canvas, CanvasOp, Unit, NetState]
       if (timestamp - lastTime.get > MS_TICK) {
+        with interactive
+        with model[Canvas, CanvasOp, Unit, NetState]
         StepAnimation().dispatch()
         lastTime.set(timestamp)
       }
