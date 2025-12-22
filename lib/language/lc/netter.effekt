@@ -26,7 +26,7 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
   val term = do read[Term]()
   println("term: '${term.show}'")
 
-  def bind(bindings: Map[String, List[Port]], x: String): Label / Exception[WrongFormat] = {
+  def bind(bindings: Map[String, List[Port]], x: String): Label = {
     val pk = do port("m")
     val bound: List[Port] = bindings.getOrElse(x) { wrongFormat() }
     do emit(Constructor(Port(pk, Neg()), bound, Multiplexer()))
@@ -53,7 +53,7 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
       val Context(pa, ba) = a
       val pk = do port("k")
       do emit(Constructor(Port(pf, Neg()), [Port(pa, Neg()), Port(pk, Pos())], LightTriangle()))
-      resume(Context(pk, bf.union(ba)))
+      resume(Context(pk, bf.union(ba, box { (a, b) => a.genericCompare(b) }) { (k, a, b) => a.append(b) }))
     }
   }
 
