@@ -1,0 +1,8 @@
+import lib/language/ic/term
+
+// TODO: actually uniquify
+def uniquify!(): Unit / { read[Constructor], emit[Constructor] } = {
+  loop {
+    do emit(do read())
+  }
+}

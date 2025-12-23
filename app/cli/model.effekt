@@ -1,15 +1,16 @@
+import lib/language/ic/term
 import lib/net/net
 
 import app/net
 
-record NetState(net: Net)
+record NetState(program: Program)
 record Context()
 
 def empty() = NetState(box {})
 
-def load(state: NetState) { prog: => Unit / NetStream }: NetState = {
-  val net: Net = collect { prog() }
-  NetState(net)
+def load(state: NetState) { prog: => Unit / emit[Constructor] }: NetState = {
+  val program: Program = collect { prog() }
+  NetState(program)
 }
 
 def cli[R] { prog: => R / NetModel[NetState, Context, Unit] }: R =
@@ -19,5 +20,6 @@ def cli[R] { prog: => R / NetModel[NetState, Context, Unit] }: R =
     def context(net) = resume(Context())
     def load(net) = resume { { prog } => net.load { prog } }
     def render(net) = resume { => net }
+    def step(net) = resume { => net }
     def operation(net, op) = resume { => net }
   }

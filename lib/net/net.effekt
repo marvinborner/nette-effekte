@@ -3,6 +3,14 @@ import lib/ui/vector
 
 type Kind { LightTriangle(); DarkTriangle(); LightCircle(); DarkCircle(); Multiplexer() }
 
+def infixEq(left: Kind, right: Kind) = (left, right) match {
+  case (LightTriangle(), LightTriangle()) => true
+  case (DarkTriangle(), DarkTriangle()) => true
+  case (LightCircle(), LightCircle()) => true
+  case (DarkCircle(), DarkCircle()) => true
+  case _ => false // no multiplexer!
+}
+
 type Label = Int // TODO: Ref[Int]?
 
 record Agent(name: String, pp: Label, aux: List[Label], kind: Kind, pos: Vector)

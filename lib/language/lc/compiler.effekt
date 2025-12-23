@@ -5,12 +5,7 @@ import lib/language/lc/term
 import lib/language/lc/parser
 import lib/language/lc/netter
 import lib/language/ic/term
-import lib/language/ic/compiler
 
-def compile(): Unit / { Exception[WrongFormat], read[Char], emit[Constructor] } =
+def compile!(): Unit / { Exception[WrongFormat], read[Char], emit[Constructor] } =
   with source[Term] { parse!() }
   net!()
-
-def compile!(): Unit / { Exception[WrongFormat], read[Char], NetStream } =
-  with source[Constructor] { compile() }
-  ic::compile()

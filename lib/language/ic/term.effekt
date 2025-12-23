@@ -4,8 +4,15 @@ type Polarity { Pos(); Neg() }
 
 record Port(name: String, pol: Polarity)
 
+def map(port: Port) { f: Polarity => Polarity }: Port = port match {
+  case Port(name, pol) => Port(name, pol.f)
+}
+
 record Constructor(pp: Port, aux: List[Port], kind: Kind)
-record Program(ctors: List[Constructor])
+type Program = => Unit / emit[Constructor] at {}
+
+record Redex(left: Constructor, right: Constructor) // pp: (-, +)
+type RedexBag = => Unit / emit[Redex] at {}
 
 def show(pol: Polarity) = pol match {
   case Pos() => "+"
@@ -20,4 +27,24 @@ def show(ctor: Constructor) = {
   "${pp}(${aux})"
 }
 
-def show(program: Program) = program.ctors.map { p => p.show() }.join("\n")
+def collect { prog: => Unit / emit[Redex] }: RedexBag = {
+  val redexes: List[Redex] = collect { prog() }
+  box { redexes.each }
+}
+
+def collect { prog: => Unit / emit[Constructor] }: Program = {
+  val ctors: List[Constructor] = collect { prog() }
+  box { ctors.each }
+}
+
+namespace returning {
+  def collect[R] { prog: => R / emit[Redex] }: (R, RedexBag) = {
+    val redexes: (R, List[Redex]) = list::returning::collect { prog() }
+    (redexes.first, box { redexes.second.each })
+  }
+
+  def collect[R] { prog: => R / emit[Constructor] }: (R, Program) = {
+    val ctors: (R, List[Constructor]) = list::returning::collect { prog() }
+    (ctors.first, box { ctors.second.each })
+  }
+}

@@ -1,0 +1,84 @@
+import map
+import set
+
+import lib/net/net
+import lib/language/ic/term
+
+record PortRule(index: Int, polarizer: Polarity => Polarity at {})
+record Substitution(from: PortRule, to: PortRule)
+record Arity(left: Int, right: Int)
+record Rule(left: Kind, right: Kind, arity: Arity, substitutions: List[Substitution])
+
+effect annihilate(ctor: Constructor): Unit
+effect substitute(from: Port, to: Port): Unit
+
+def id(pol: Polarity) = pol
+def negate(pol: Polarity) = pol match { case Pos() => Neg(); case Neg() => Pos() }
+
+val icRules = [
+  // "! f-(a-, k+) <> f+(x+, b-) ~> [a-/x-][k-/b-]"
+  Rule(LightTriangle(), LightTriangle(), Arity(2, 2), [
+    Substitution(PortRule(0, box id), PortRule(0, box negate)),
+    Substitution(PortRule(1, box negate),  PortRule(1, box id))
+  ])
+
+  // TODO: multiplexer rules (maybe by/from LC)
+  // TODO: commutation rules
+]
+
+def redexes(program: Program): Unit / emit[Redex] =
+  with val ctorA = for { program() }
+  with val ctorB = for { program() }
+  if (ctorA.pp.pol is Neg() and ctorB.pp.pol is Pos())
+    if (ctorA.pp.name == ctorB.pp.name)
+      do emit(Redex(ctorA, ctorB))
+
+def interact(redex: Redex, rule: Rule): Bool / { annihilate, substitute, emit[Redex] } =
+  if (rule.arity.left == redex.left.aux.size && rule.arity.right == redex.right.aux.size &&
+      rule.left == redex.left.kind && rule.right == redex.right.kind) {
+
+    with on[OutOfBounds].panic
+    rule.substitutions.foreach { case Substitution(PortRule(indexL, polL), PortRule(indexR, polR)) =>
+      val portL = redex.left.aux.get(indexL).map { pol => polL(pol) }
+      val portR = redex.right.aux.get(indexR).map { pol => polR(pol) }
+      do substitute(portL, portR)
+    }
+
+    do annihilate(redex.left)
+    do annihilate(redex.right)
+    true
+  } else false
+
+def apply(port: Port, substitutions: Ref[Map[Port, Port]]): Port =
+  if (substitutions.get.contains(port)) {
+    val newPort = substitutions.get.getOrElse(port) { panic("wtf") }
+    substitutions.map { m => m.delete(port) }
+    newPort
+  } else port
+
+/// applies one-shot substitutions on constructor
+def apply(ctor: Constructor, substitutions: Ref[Map[Port, Port]]): Constructor = {
+  val pp = ctor.pp.apply(substitutions)
+  val aux = ctor.aux.map { port => port.apply(substitutions) }
+  Constructor(pp, aux, ctor.kind)
+}
+
+def step(program: Program, redexes: RedexBag): Unit / { emit[Constructor], emit[Redex] } = {
+  val annihilated = ref[Set[Constructor]](emptyGeneric())
+  val substitutions = ref[Map[Port, Port]](emptyGeneric())
+
+  try for { redexes } { redex =>
+    icRules.foreach { (rule) {label} =>
+      if (redex.interact(rule)) label.break()
+    }
+  } with annihilate { ctor =>
+    resume(annihilated.map { s => s.insert(ctor) })
+  } with substitute { (from, to) =>
+    resume(substitutions.map { m => m.put(to, from) })
+  }
+
+  for { program() } { ctor =>
+    if (not(annihilated.get.contains(ctor)))
+      do emit(ctor.apply(substitutions))
+  }
+}

@@ -48,7 +48,7 @@ def show(m: Mode) = m match {
 
 def empty[N, C, O](): EvaluatorState[N] / NetModel[N, C, O] = {
   var map = map::emptyGeneric[Mode, TextStream]()
-  val emptyStream: => Unit / emit[Char] at {} = box{}
+  val emptyStream: => Unit / emit[Char] at {global} = box{}
   map = map.put(SourceLanguage(), emptyStream)
   map = map.put(LambdaCalculus(), emptyStream)
   map = map.put(InteractionCalculus(), emptyStream)
@@ -113,7 +113,7 @@ def model[C, O, R, N] { prog: => R / Model[C, O] }: R / { State[EvaluatorState[N
   try { prog() }
   with Model[C, O] {
     def render() = resume { modifyState { st => st.render } }
-    def stepReduction() = <>
+    def stepReduction() = resume { modifyState { net => do step(net) } }
     def stepAnimation() = resume { modifyState { net => do render(net) } }
     def nextMode() = resume { modifyState { st => st.nextMode } }
     def setSource(c) = resume { modifyState { st => st.setSource(c) } }

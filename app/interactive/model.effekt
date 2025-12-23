@@ -2,6 +2,9 @@ import map
 
 import app/net
 
+import lib/language/ic/term
+import lib/language/ic/ruler
+import lib/language/ic/netter
 import lib/net/net
 import lib/ui/geometry
 import lib/ui/dirty
@@ -9,7 +12,7 @@ import lib/ui/vector
 import lib/ui/canvas
 import lib/net/layout
 
-record NetState(net: Net, canvas: Canvas)
+record NetState(net: Net, program: Program, redexes: RedexBag, canvas: Canvas)
 
 type CanvasOp {
   Size(size: Vector)
@@ -18,7 +21,9 @@ type CanvasOp {
 }
 
 def empty(): Net = box {}
-def empty() = NetState(empty(), empty())
+def empty(): Program = box {}
+def empty(): RedexBag = box {}
+def empty() = NetState(empty(), empty(), empty(), empty())
 
 type WireResolver { Resolved(position: Vector); Unresolved(label: Label) }
 
@@ -65,19 +70,28 @@ def render(state: NetState): NetState / Redraw = {
     canvas
   }
   do redrawCallee()
-  NetState(t.second, t.first)
+  NetState(t.second, state.program, state.redexes, t.first)
 }
 
 def operation(state: NetState, op: CanvasOp): NetState / Redraw = op match {
-  case Size(s) => NetState(state.net, state.canvas.setSize(s)) // no render!
-  case Pan(o) => NetState(state.net, state.canvas.addOffset(o)).render()
-  case Zoom(d) => NetState(state.net, state.canvas.map { sc => sc * 1.1.pow(d) }).render()
+  case Size(s) => NetState(state.net, state.program, state.redexes, state.canvas.setSize(s)) // no render!
+  case Pan(o)  => NetState(state.net, state.program, state.redexes, state.canvas.addOffset(o)).render()
+  case Zoom(d) => NetState(state.net, state.program, state.redexes, state.canvas.map { sc => sc * 1.1.pow(d) }).render()
 }
 
-def load(state: NetState) { prog: => Unit / NetStream }: NetState / Redraw = {
-  val net: Net = collect { prog() }
+def load(state: NetState) { prog: => Unit / emit[Constructor] }: NetState / Redraw = {
+  with on[WrongFormat].panic // impossible by now
+  val program: Program = collect { prog() }
+  val net: Net = collect { source[Constructor] { program() } { net!() } }
+  val redexes: RedexBag = collect { program.redexes() }
   do redrawCallee()
-  NetState(net, state.canvas)
+  NetState(net, program, redexes, state.canvas)
+}
+
+def step(state: NetState): NetState / Redraw = {
+  val (loaded, redexes) = returning::collect {
+    state.load { state.program.step(state.redexes) } }
+  NetState(loaded.net, loaded.program, redexes, loaded.canvas)
 }
 
 def interactive[R] { prog: => R / NetModel[NetState, Canvas, CanvasOp] }: R =
@@ -87,5 +101,6 @@ def interactive[R] { prog: => R / NetModel[NetState, Canvas, CanvasOp] }: R =
     def context(net) = resume(net.canvas)
     def load(net) = resume { { prog } => net.load { prog } }
     def render(net) = resume { net.render }
+    def step(net) = resume { net.step }
     def operation(net, op) = resume { net.operation(op) }
   }

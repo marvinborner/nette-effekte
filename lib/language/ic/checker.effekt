@@ -25,7 +25,5 @@ def checkPolarities(): Unit / { Exception[WrongFormat], read[Constructor], emit[
   if (map.size > 1) wrongFormat("only 1 wire is allowed to be free, but ${map.size.show} are")
 }
 
-// TODO: tentaclify readers for multiple checks
-def check!(): Unit / { Exception[WrongFormat], read[Constructor], emit[Constructor] } = {
+def check!(): Unit / { Exception[WrongFormat], read[Constructor], emit[Constructor] } =
   checkPolarities()
-}
