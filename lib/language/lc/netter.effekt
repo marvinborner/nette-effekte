@@ -21,7 +21,7 @@ def plumbing { prog: => Unit / port } = {
 
 def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
   with plumbing
-  with exhaustively
+  with loop
 
   val term = do read[Term]()
   println("term: '${term.show}'")

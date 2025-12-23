@@ -14,7 +14,7 @@ def checkPolarities(): Unit / { Exception[WrongFormat], read[Constructor], emit[
     }
   }
 
-  exhaustively {
+  loop {
     val ctor = do read()
     println(ctor.show)
     ctor.pp.check()

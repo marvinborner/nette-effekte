@@ -11,7 +11,7 @@ def centralGravitation(agent: Agent): Vector / Force =
 def coulombForce(agent: Agent) { agents: => Unit / AgentStream }: Vector / Force =
   with forceSum
   with source[Vector] { agentPositions {agents} }
-  with exhaustively
+  with loop
   do emit(repulsion(do read[Vector], agent.pos))
 
 def geometry(wire: Wire) { agents: => Unit / AgentStream }: (Vector, Vector) = {

@@ -49,4 +49,4 @@ def parseS(input: String): List[Term] / Exception[WrongFormat] =
   .value
 
 def parse!(): Unit / { Exception[WrongFormat], read[Char], emit[Term] } =
-  parseS(collect { exhaustively { do emit(do read[Char]()) } }).each
+  parseS(collect { loop { do emit(do read[Char]()) } }).each

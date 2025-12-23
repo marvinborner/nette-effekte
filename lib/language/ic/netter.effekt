@@ -30,7 +30,7 @@ def net!(): Unit / { Exception[WrongFormat], read[Constructor], NetStream } = {
 
   var k = 0
 
-  with exhaustively
+  with loop
   val ctor = do read()
   val pp_ = ctor.pp.uniqueMatch()
   val aux_ = ctor.aux.map { p => p.uniqueMatch() }
