@@ -22,7 +22,6 @@ def parseConstructor(): Constructor / Parser = {
   val kind = or([
     box { punct("("); LightTriangle() },
     box { punct("["); DarkTriangle() },
-    box { punct("{"); LightCircle() },
   ])
   val aux = some {
     val port = parsePort()
@@ -32,9 +31,6 @@ def parseConstructor(): Constructor / Parser = {
   kind match {
     case LightTriangle() => punct(")")
     case DarkTriangle() => punct("]")
-    case LightCircle() => punct("}")
-    case DarkCircle() => punct("?") // TODO: dark circle
-    case Multiplexer() => <> // synthetic
   }
   Constructor(pp, aux, kind)
 }

@@ -61,7 +61,8 @@ def draw(ctx: Context, triangle: Triangle): Unit = {
   ctx.lineTo(0.0, -1.0 * triangle.halfHeight)
 
   ctx.stroke()
-  // ctx.fill()
+  ctx.setFillStyle(triangle.color)
+  ctx.fill()
 }
 
 extern def atan2(x: Double, y: Double) at io: Double =

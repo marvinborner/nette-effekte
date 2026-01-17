@@ -8,12 +8,9 @@ def parseSym(): Term / Parser = {
 }
 
 def parseAbs(): Term / Parser = {
-  or([
-    box { punct("λ") },
-    box { punct("\\") },
-  ])
   val name = ident()
-  punct(".")
+  punct("=")
+  punct(">")
   val body = parseTerm()
   Abs(name, body)
 }

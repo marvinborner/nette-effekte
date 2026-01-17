@@ -19,7 +19,7 @@ val icRules = [
   // "! f-(a-, k+) <> f+(x+, b-) ~> [a-/x-][k-/b-]"
   Rule(LightTriangle(), LightTriangle(), Arity(2, 2), [
     Substitution(PortRule(0, box id), PortRule(0, box negate)),
-    Substitution(PortRule(1, box negate),  PortRule(1, box id))
+    Substitution(PortRule(1, box negate), PortRule(1, box id))
   ])
 
   // TODO: multiplexer rules (maybe by/from LC)

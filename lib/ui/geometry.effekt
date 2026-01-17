@@ -40,7 +40,7 @@ def attraction(towards: Vector, position: Vector): Vector / Force =
 // --- geometry ---
 
 record Arrow(from: Vector, to: Vector)
-record Triangle(center: Vector, width: Double, arity: Int)
+record Triangle(center: Vector, width: Double, arity: Int, color: String)
 
 effect Draw = { emit[Arrow], emit[Triangle] }
 record ReifiedGeometry(arrows: List[Arrow], triangles: List[Triangle])

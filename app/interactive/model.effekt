@@ -46,7 +46,7 @@ def render(state: NetState): Unit / { Draw, NetStream } = {
   try layout { (state.net)() }
   with emit[Agent] { agent =>
     do emit(agent)
-    val triangle = Triangle(agent.pos, 100.0, agent.aux.size)
+    val triangle = Triangle(agent.pos, 100.0, agent.aux.size, agent.color)
     agent.pp.resolve(triangle.principal)
     agent.aux.foreachIndex { (i, port) => port.resolve(triangle.auxiliary(i)) }
     resume(do emit(triangle))

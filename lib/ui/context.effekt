@@ -36,4 +36,7 @@ extern def translate(ctx: Context, x: Double, y: Double) at io: Unit =
   jsWeb "${ctx}.translate(${x}, ${y})"
 
 extern def setStrokeStyle(ctx: Context, style: String) at io: Unit =
-  jsWeb "(() => (ctx.strokeStyle = ${style}))()"
+  jsWeb "(() => (${ctx}.strokeStyle = ${style}))()"
+
+extern def setFillStyle(ctx: Context, style: String) at io: Unit =
+  jsWeb "(() => (${ctx}.fillStyle = ${style}))()"

@@ -29,7 +29,7 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
   def bind(bindings: Map[String, List[Port]], x: String): Label = {
     val pk = do port("m")
     val bound: List[Port] = bindings.getOrElse(x) { wrongFormat() }
-    do emit(Constructor(Port(pk, Neg()), bound, Multiplexer()))
+    do emit(Constructor(Port(pk, Neg()), bound, DarkTriangle()))
     pk
   }
 

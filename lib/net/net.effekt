@@ -1,13 +1,11 @@
 import lib/ui/geometry
 import lib/ui/vector
 
-type Kind { LightTriangle(); DarkTriangle(); LightCircle(); DarkCircle(); Multiplexer() }
+type Kind { LightTriangle(); DarkTriangle() }
 
 def infixEq(left: Kind, right: Kind) = (left, right) match {
   case (LightTriangle(), LightTriangle()) => true
   case (DarkTriangle(), DarkTriangle()) => true
-  case (LightCircle(), LightCircle()) => true
-  case (DarkCircle(), DarkCircle()) => true
   case _ => false // no multiplexer!
 }
 
@@ -38,8 +36,13 @@ def attachedTo(agent: Agent, wire: Wire) =
   wire.from == agent.pp || agent.aux.contains(wire.from) { (a, b) => a == b }
  || wire.to == agent.pp || agent.aux.contains(wire.to)   { (a, b) => a == b }
 
-def hasLabel(agent: Agent, label: Label) =
+def label?(agent: Agent, label: Label) =
   agent.pp == label || agent.aux.any { l => l == label }
+
+def color(agent: Agent) = agent.kind match {
+  case LightTriangle() => "#ffffff"
+  case DarkTriangle()  => "#000000"
+}
 
 def attachedWires(agent: Agent) { wires: => Unit / WireStream }: Unit / WireStream =
   for { wires() } { wire =>
@@ -61,8 +64,8 @@ def fromTo(wire: Wire) { agents: => Unit / AgentStream }: (Vector, Vector) = {
   var fromTo = (None[Vector](), None[Vector]())
   try agents()
   with emit[Agent] { agent =>
-    if (agent.hasLabel(wire.from)) fromTo = (Some(agent.pos), fromTo.second)
-    if (agent.hasLabel(wire.to)) fromTo = (fromTo.first, Some(agent.pos))
+    if (agent.label?(wire.from)) fromTo = (Some(agent.pos), fromTo.second)
+    if (agent.label?(wire.to)) fromTo = (fromTo.first, Some(agent.pos))
 
     // TODO: how does the `or`/`|` work in scrutinees?
     if (fromTo.first is None()) resume(())
