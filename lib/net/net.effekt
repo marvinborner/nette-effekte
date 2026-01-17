@@ -39,6 +39,8 @@ def attachedTo(agent: Agent, wire: Wire) =
 def label?(agent: Agent, label: Label) =
   agent.pp == label || agent.aux.any { l => l == label }
 
+def arity(agent: Agent) = agent.aux.size
+
 def color(agent: Agent) = agent.kind match {
   case LightTriangle() => "#ffffff"
   case DarkTriangle()  => "#000000"

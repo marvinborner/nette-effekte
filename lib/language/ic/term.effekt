@@ -8,6 +8,9 @@ def map(port: Port) { f: Polarity => Polarity }: Port = port match {
   case Port(name, pol) => Port(name, pol.f)
 }
 
+def negate(pol: Polarity) = pol match { case Pos() => Neg(); case Neg() => Pos() }
+def negate(port: Port) = port.map { pol => pol.negate }
+
 record Constructor(pp: Port, aux: List[Port], kind: Kind)
 type Program = => Unit / emit[Constructor] at {}
 
@@ -26,6 +29,8 @@ def show(ctor: Constructor) = {
   val aux = ctor.aux.map { p => p.show() }.join(", ")
   "${pp}(${aux})"
 }
+
+def arity(ctor: Constructor) = ctor.aux.size
 
 def collect { prog: => Unit / emit[Redex] }: RedexBag = {
   val redexes: List[Redex] = collect { prog() }

@@ -6,3 +6,9 @@ def size[A] { s: => Unit / emit[A] }: Int = {
   with emit[A] { _ => size = size + 1}
   size
 }
+
+def init[A](l: List[A]): List[A] / Exception[MissingValue] = l match {
+  case Nil() => do raise(MissingValue(), "Trying to get the beginning of an empty list")
+  case Cons(a, Nil()) => Nil()
+  case Cons(a, as) => Cons(a, as.init)
+}
