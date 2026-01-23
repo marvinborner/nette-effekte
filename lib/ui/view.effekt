@@ -63,7 +63,7 @@ def tagger[R] { prog: => R / tag }: R = {
 }
 
 def tag![Ev](element: Html[Ev]): Html[Ev] / tag = Tagged(element, do tag())
-def tag(node: Node): Tag = on[WrongFormat].panic { node.getAttribute("data-tag").toInt }
+def tag(node: Node): Tag = crash("tag not found") { node.getAttribute("data-tag").toInt }
 def tag(node: Node, tag: Tag): Node = node.setAttribute("data-tag", tag.show)
 
 def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
