@@ -27,22 +27,29 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
   println("term: '${term.show}'")
 
   def bind(bindings: Map[String, List[Port]], x: String): Label = {
-    val pk = do port("m")
+    with on[MissingValue].panic() // can not happen
     val bound: List[Port] = bindings.getOrElse(x) { wrongFormat() }
-    do emit(Constructor(Port(pk, Neg()), bound, DarkTriangle()))
-    pk
+    val duplicity = bound.size
+    duplicity match {
+      case 1 => bound.head.name // linear: no duplicator required
+      case n => {
+        val pk = do port(x ++ "Dup")
+        do emit(Constructor(Port(pk, Neg()), bound, DarkTriangle()))
+        pk
+      }
+    }
   }
 
   try term.cata
   with TermF[Context] {
     def sym(x) = {
-      val px = do port(x)
+      val px = do port(x ++ "Sym")
       resume(Context(px, singletonGeneric(x, [Port(px, Pos())])))
     }
 
     def abs(x, b) = {
       val Context(pb, bb) = b
-      val pk = do port("k")
+      val pk = do port("kAbs")
       val px = bb.bind(x)
       do emit(Constructor(Port(pk, Pos()), [Port(px, Pos()), Port(pb, Neg())], LightTriangle()))
       resume(Context(pk, bb.delete(x)))
@@ -51,7 +58,7 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
     def app(f, a) = {
       val Context(pf, bf) = f
       val Context(pa, ba) = a
-      val pk = do port("k")
+      val pk = do port("kApp")
       do emit(Constructor(Port(pf, Neg()), [Port(pa, Neg()), Port(pk, Pos())], LightTriangle()))
       resume(Context(pk, bf.union(ba, box { (a, b) => a.genericCompare(b) }) { (k, a, b) => a.append(b) }))
     }

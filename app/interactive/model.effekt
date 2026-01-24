@@ -4,8 +4,8 @@ import app/net
 
 import lib/language/ic/term
 import lib/language/ic/ruler
-import lib/language/ic/netter
 import lib/net/net
+import lib/net/netter
 import lib/ui/geometry
 import lib/ui/dirty
 import lib/ui/vector

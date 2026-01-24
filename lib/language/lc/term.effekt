@@ -17,6 +17,14 @@ def cata[A](t: Term): A / TermF[A] =
     case App(f, a) => do app(f.cata, a.cata)
   }
 
+def length(t: Term) =
+  try t.cata
+  with TermF[Int] {
+    def sym(x)    = resume(1)
+    def abs(x, b) = resume(1 + b)
+    def app(f, a) = resume(1 + f + a)
+  }
+
 def show(t: Term) =
   try t.cata
   with TermF[String] {

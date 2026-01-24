@@ -24,7 +24,6 @@ interface Force {
   def strength(x: Double): Double
 }
 
-// TODO: 'fsum [] = pos' case?
 def forceSum { fs: => Unit / { emit[Vector], Force } }: Vector / Force =
   average { fs() }
 

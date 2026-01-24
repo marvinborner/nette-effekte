@@ -74,7 +74,6 @@ def nextMode[N](state: EvaluatorState[N]): EvaluatorState[N] / Redraw = {
 }
 
 def setSource[N](state: EvaluatorState[N], s: String): EvaluatorState[N] / Redraw = {
-  // do redrawFull() // TODO?
   state match {
     case EvaluatorState(mode, sources, net, errors) => {
       // this would have been so cool but would only work for linear ASCII input (no escape, arrow keys)

@@ -14,6 +14,8 @@ type Label = Int // TODO: Ref[Int]?
 record Agent(name: String, pp: Label, aux: List[Label], kind: Kind, pos: Vector)
 record Wire(from: Label, to: Label)
 
+def flip(wire: Wire) = Wire(wire.to, wire.from)
+
 def map(agent: Agent) { f: Vector => Vector }: Agent = agent match {
   case Agent(name, pp, aux, kind, pos) => Agent(name, pp, aux, kind, f(pos))
 }
@@ -57,6 +59,8 @@ def agentPositions() { agents: => Unit / AgentStream }: Unit / emit[Vector] =
     do emit(agent.pos)
   }
 
+/// agents connected to the given wire of the given agent, not including the agent itself
+/// TODO: in our linear model, this is only 1 - stop after one emit.
 def adverseAgents(agent: Agent, wire: Wire) { agents: => Unit / AgentStream }: Unit / AgentStream =
   with val a = for { agents() }
   if (a.pp != agent.pp && a.attachedTo(wire)) do emit(a)
@@ -79,13 +83,11 @@ def fromTo(wire: Wire) { agents: => Unit / AgentStream }: (Vector, Vector) = {
   }
 }
 
-// TODO: reuse returning::collect from below
 def collect { prog: => Unit / NetStream }: ReifiedNet = {
   val tup: Tuple2[List[Wire], List[Agent]] = returning::collect { collect { prog() } }
   ReifiedNet(tup.first, tup.second)
 }
 
-// TODO: reuse returning::collect from below
 def collect { prog: => Unit / NetStream }: Net = {
   val both: ReifiedNet = collect { prog() }
   box { both.wires.each; both.agents.each }

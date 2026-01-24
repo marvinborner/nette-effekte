@@ -10,7 +10,7 @@ def circularLayout(k: Int): Vector = {
   Vector((k.mod(3) + 1).toDouble * scale, (k.mod(3) + 1).toDouble * scale).rotate(k.toDouble)
 }
 
-def net!(): Unit / { Exception[WrongFormat], read[Constructor], NetStream } = {
+def net!(): Unit / { read[Constructor], NetStream } = {
   var ids: Label = 0
   var map: Map[String, Label] = emptyGeneric()
 

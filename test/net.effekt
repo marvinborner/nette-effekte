@@ -1,0 +1,57 @@
+import test
+
+import lib/utils
+import lib/net/net
+import lib/net/netter
+import lib/language/lc/compiler
+import lib/language/ic/term
+import lib/ui/vector
+
+def tests() = suite("└ net tests") {
+  test("net generic ops") {
+    val agent = Agent("a", 0, [2, 3], LightTriangle(), Vector(50.0, 50.0))
+    val wire = Wire(2, 4)
+    assertEqual(agent.color, "#ffffff")
+    assertEqual(agent.arity, 2)
+    assertTrue(agent.attachedTo(wire))
+
+    val adverse: List[Agent] = collect { agent.adverseAgents(wire) {
+      do emit(Agent("b", 42, [], LightTriangle(), Vector(50.0, 50.0)))
+      do emit(Agent("c", 42, [3, 2], LightTriangle(), Vector(50.0, 50.0)))
+      do emit(Agent("d", 42, [4, 5], LightTriangle(), Vector(50.0, 50.0)))
+    } }
+    assertEqual(adverse, [
+      Agent("c", 42, [3, 2], LightTriangle(), Vector(50.0, 50.0)),
+      Agent("d", 42, [4, 5], LightTriangle(), Vector(50.0, 50.0))]) 
+  }
+
+  test("netting: identity") {
+    val net: ReifiedNet = net::collect {
+      with assertNoThrow[WrongFormat]
+      with source[Constructor] {
+        with source[Char] { "x => x".each }
+        compile!()
+      }
+      net!()
+    }
+    assertEqual(net.agents, [Agent("kAbs2", 0, [2, 3], LightTriangle(), Vector(50.0, 50.0))])
+    assertEqual(net.wires, [Wire(2, 3)])
+  }
+
+  test("netting: working stream splitting") {
+    val net: Net = net::collect {
+      with assertNoThrow[WrongFormat]
+      with source[Constructor] {
+        with source[Char] { "x => x".each }
+        compile!()
+      }
+      net!()
+    }
+
+    val agents: List[Agent] = collect { agents { net() } }
+    assertEqual(agents, [Agent("kAbs2", 0, [2, 3], LightTriangle(), Vector(50.0, 50.0))])
+
+    val wires: List[Wire] = collect { wires { net() } }
+    assertEqual(wires, [Wire(2, 3)])
+  }
+}

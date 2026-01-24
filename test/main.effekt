@@ -2,6 +2,8 @@ import test
 
 import test/ic
 import test/lc
+import test/net
+import test/layout
 
 def main() = mainSuite("nette-tests") {
   test("run suites") {
@@ -10,5 +12,7 @@ def main() = mainSuite("nette-tests") {
 
     assertTrue(ic::tests())
     assertTrue(lc::tests())
+    assertTrue(net::tests())
+    assertTrue(layout::tests())
   }
 }

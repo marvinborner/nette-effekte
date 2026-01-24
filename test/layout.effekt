@@ -1,0 +1,58 @@
+import test
+
+import lib/utils
+import lib/net/net
+import lib/net/netter
+import lib/net/layout
+import lib/ui/vector
+
+def tests() = suite("└ layout tests") {
+  test("layout: forces") {
+    val start = Vector(100.0, 100.0)
+    val agent = Agent("a", 0, [1, 2], LightTriangle(), Vector(50.0, 50.0))
+
+    // central force:
+    // vec(r) = vec(r)_{center} - vec(r)_{agent.pos} = (-50, -50)
+    // r = |vec(r)| is the distance to the center
+    // f(r) = r*0.1 is the strength depending on the distance
+    // (-50, -50).normalize * strength((-50, -50).magnitude) = (-5, -5) added to the origin vector (100, 100)
+    val centralPos = withForce(start) { agent.centralGravitation } { r =>
+      assertEqual(r, agent.pos.magnitude) // 70.71...
+      r * 0.1
+    }
+    assertEqual(centralPos, Vector(95.0, 95.0))
+
+    // spring force:
+    val springPos = withForce(start) { agent.springForce(150.0) {
+      do emit(agent)
+      do emit(Agent("b", 3, [], LightTriangle(), Vector(1000.0, 1000.0)))
+      do emit(Wire(1, 3))
+      do emit(Agent("c", 4, [], LightTriangle(), Vector(-1000.0, -1000.0)))
+      do emit(Wire(2, 4))
+    } } { r => r * 0.1 }
+    assertEqual(springPos, Vector(850.0, 850.0))
+  }
+
+  test("layout: multiple agents") {
+    val start = Vector(1000.0, 1000.0)
+    val end = Vector(-1000.0, -1000.0)
+    val (from, to) = geometry(Wire(1, 2)) {
+      do emit(Agent("a", 0, [1], LightTriangle(), start))
+      do emit(Agent("b", 3, [4], LightTriangle(), Vector(0.0, 0.0)))
+      do emit(Agent("c", 2, [], LightTriangle(), end))
+      do emit(Agent("d", 5, [], LightTriangle(), Vector(0.0, 0.0)))
+    }
+    assertEqual(from, start)
+    assertEqual(to, end - start) // it's a directed vector after all
+
+    val wires: List[Wire] = collect {
+      attachedWires(Agent("a", 0, [1, 2], LightTriangle(), start)) {
+        do emit(Wire(42, 3))
+        do emit(Wire(0, 3))
+        do emit(Wire(3, 1))
+        do emit(Wire(1, 2))
+      }
+    }
+    assertEqual(wires, [Wire(0, 3), Wire(3, 1), Wire(1, 2)])
+  }
+}

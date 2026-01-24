@@ -1,11 +1,11 @@
 module ic
 
 import lib/net/net
+import lib/net/netter
 import lib/language/ic/term
 import lib/language/ic/parser
 import lib/language/ic/checker
 import lib/language/ic/uniquifier
-import lib/language/ic/netter
 
 def compile!(): Unit / { Exception[WrongFormat], read[Char], emit[Constructor] } =
   with source[Constructor] { parse!() }

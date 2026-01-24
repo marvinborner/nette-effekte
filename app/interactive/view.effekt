@@ -39,7 +39,7 @@ type Event {
   ZoomCanvas(d: Double);
 }
 
-def dispatch(msg: Event): Unit / { Model[Canvas, CanvasOp], Redraw }  = msg match {
+def dispatch(msg: Event): Unit / { Model[Canvas, CanvasOp], Redraw } = msg match {
   case Render()         => do render()
   case StepReduction()  => do stepReduction()
   case StepAnimation()  => do stepAnimation()

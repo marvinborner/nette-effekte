@@ -1,0 +1,66 @@
+import test
+
+import lib/utils
+import lib/net/net
+import lib/language/ic/compiler
+import lib/language/ic/term
+
+def tests() = suite("└ ic tests") {
+  test("ic generic ops") {
+    val ctor = Constructor(Port("a", Neg()), [Port("a", Pos()), Port("k", Pos())], LightTriangle())
+    assertEqual(ctor.arity, 2)
+    assertEqual(ctor.show, "a-(a+, k+)")
+    assertEqual(ctor.aux.map { port => port.negate }, [Port("a", Neg()), Port("k", Neg())])
+    assertEqual(ctor.aux.map { port => port.map { pol => pol.negate } }, [Port("a", Neg()), Port("k", Neg())])
+  }
+
+  test("ic compilation: simple") {
+    val ctors: List[Constructor] = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "a+(a-)".each }
+      compile!()
+    }
+    assertEqual(ctors, [Constructor(Port("a", Pos()), [Port("a", Neg())], LightTriangle())])
+  }
+
+  test("ic compilation: multiline") {
+    val ctors: List[Constructor] = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "a+(b-)\na-(b+)".each }
+      compile!()
+    }
+    assertEqual(ctors, [
+      Constructor(Port("a", Pos()), [Port("b", Neg())], LightTriangle()),
+      Constructor(Port("a", Neg()), [Port("b", Pos())], LightTriangle())])
+  }
+
+  test("ic compilation: duplicating nil/one/n") {
+    val ctors: List[Constructor] = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "a+[]\nb-[a-]\nb+[c-, d-, d+ c+, k+]".each }
+      compile!()
+    }
+    assertEqual(ctors, [
+      Constructor(Port("a", Pos()), [], DarkTriangle()),
+      Constructor(Port("b", Neg()), [Port("a", Neg())], DarkTriangle()),
+      Constructor(Port("b", Pos()), [Port("c", Neg()), Port("d", Neg()), Port("d", Pos()), Port("c", Pos()), Port("k", Pos())], DarkTriangle())])
+  }
+
+  test("ic compilation: fail on >1 open wires") {
+    with assertThrows[WrongFormat]
+    list::collect[Constructor] {
+      with source[Char] { "a+(b-)".each }
+      compile!()
+    }
+    ()
+  }
+
+  test("ic compilation: fail on polarity mismatch") {
+    with assertThrows[WrongFormat]
+    list::collect[Constructor] {
+      with source[Char] { "a-(a-)".each }
+      compile!()
+    }
+    ()
+  }
+}
