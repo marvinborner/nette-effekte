@@ -1,5 +1,7 @@
 // to be potentially added to Effekt's standard library
 
+import test
+
 def size[A] { s: => Unit / emit[A] }: Int = {
   var size = 0
   try s()
@@ -12,3 +14,15 @@ def init[A](l: List[A]): List[A] / Exception[MissingValue] = l match {
   case Cons(a, Nil()) => Nil()
   case Cons(a, as) => Cons(a, as.init)
 }
+
+def assertNotThrown[E](ex: on[E]) { body: => Unit / Exception[E] }: Unit / Assertion =
+  ex.default { do assert(false, "Unexpected Exception") } {body}
+
+def assertNoThrow[E] { body: => Unit / Exception[E] }: Unit / Assertion =
+  on[E].default{ do assert(false, "Unexpected Exception") } {body}
+
+def assertThrown[E](ex: on[E]) { body: => Unit / Exception[E] }: Unit / Assertion =
+  do assert(ex.default { true } { body(); false }, "Expected Exception, but exited normally")
+
+def assertThrows[E] { body: => Unit / Exception[E] }: Unit / Assertion =
+  do assert(on[E].default { true } { body(); false }, "Expected Exception, but exited normally")

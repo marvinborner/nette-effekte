@@ -1,1 +1,14 @@
-def main() = ()
+import test
+
+import test/ic
+import test/lc
+
+def main() = mainSuite("nette-tests") {
+  test("run suites") {
+    assertTrue(true)
+    assertFalse(false)
+
+    assertTrue(ic::tests())
+    assertTrue(lc::tests())
+  }
+}

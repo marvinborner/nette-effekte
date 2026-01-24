@@ -23,7 +23,7 @@ def parseConstructor(): Constructor / Parser = {
     box { punct("("); LightTriangle() },
     box { punct("["); DarkTriangle() },
   ])
-  val aux = some {
+  val aux = many {
     val port = parsePort()
     opt { punct(",") }
     port
