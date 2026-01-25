@@ -1,3 +1,11 @@
 # Nette Effekte
 
-> work-in-progress
+      ╭─────╮
+    ╭─┴─╮ ╭─┴─╮
+    │ ζ │ │ δ │  
+    ╰┬─┬╯ ╰┬─┬╯
+     │ ╰───╯ │
+     ╰───────╯
+
+-   [THEORY](THEORY.md)
+-   [ARCHITECTURE](ARCHITECTURE.md)

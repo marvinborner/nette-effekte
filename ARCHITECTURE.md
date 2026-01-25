@@ -18,7 +18,7 @@ have properties actually required for rendering them.
 The library also defines the abstract implementations of the frontend
 model/view infrastructure.
 
-------------------------------------------------------------------------
+# Net Pipeline
 
 The concrete different net representations:
 
@@ -79,5 +79,9 @@ signatures for simplicity):
     ui/canvas::applyTo(canvas, node) // apply canvas to HTML node
     -->
     ... // repeat from reduction/layout step
+
+## Rule DSL
+
+## UI Theory
 
 # test
