@@ -11,19 +11,19 @@ import app/model
 
 def text[Ev](content: String) = Text[Ev](content)
 
-def button[Ev](handler: List[EventHandler[Ev]], classes: List[String], children: List[Html[Ev]]): Html[Ev] / tag =
+def button[Ev](handler: List[HtmlHandler[Ev]], classes: List[String], children: List[Html[Ev]]): Html[Ev] / tag =
   Element("button", classes, handler, children, "").tag!
 
-def div[Ev](handler: List[EventHandler[Ev]], classes: List[String], children: List[Html[Ev]]): Html[Ev] / tag =
+def div[Ev](handler: List[HtmlHandler[Ev]], classes: List[String], children: List[Html[Ev]]): Html[Ev] / tag =
   Element("div", classes, handler, children, "").tag!
 
 def div[Ev](classes: List[String], children: List[Html[Ev]]): Html[Ev] / tag =
   div([], classes, children).tag!
 
-def canvas[Ev](handler: List[EventHandler[Ev]], classes: List[String], canvas: Canvas): Html[Ev] / tag =
+def canvas[Ev](handler: List[HtmlHandler[Ev]], classes: List[String], canvas: Canvas): Html[Ev] / tag =
   Canvas(classes, handler, canvas).tag!
 
-def textarea[Ev](handler: List[EventHandler[Ev]], classes: List[String], text: TextStream): Html[Ev] / tag =
+def textarea[Ev](handler: List[HtmlHandler[Ev]], classes: List[String], text: TextStream): Html[Ev] / tag =
   Element("textarea", classes, handler, [], collect { text() }).tag!
 
 // ---
@@ -81,10 +81,8 @@ def start() = {
     documentBody.appendChild(newDiv)
   }
 
-  val lastTime = ref(0)
-
   with interactive
-  run(appDiv, model::empty[NetState, Canvas, CanvasOp](), View(
+  run(appDiv, model::empty[NetState, Canvas, CanvasOp](), HtmlView(
     update = box { ev =>
       with interactive
       with model[Canvas, CanvasOp, Unit, NetState]

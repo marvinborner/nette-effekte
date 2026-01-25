@@ -1,3 +1,47 @@
 module cli
 
-def start() = <>
+import lib/ui/node
+import lib/ui/view
+import lib/ui/dirty
+import lib/ui/terminal
+
+import app/cli/model
+import app/model
+
+val MODE = LambdaCalculus()
+
+def string[Ev](content: String) = String[Ev](content)
+def input[Ev](handlers: List[TuiHandler[Ev]], label: String) = Input[Ev](handlers, label)
+def rows[Ev](elements: List[Tui[Ev]]) = Rows[Ev](elements)
+
+def append(text: TextStream, ch: Char): String = collect { text(); do emit(ch) }
+
+type Event {
+  StepReduction();
+  AppendSource(ch: Char);
+}
+
+def dispatch(msg: Event): Unit / { Model[Terminal, Unit], Redraw } = msg match {
+  case StepReduction()  => do stepReduction()
+  case AppendSource(ch) => do setSource(do getSource(MODE).append(ch))
+}
+
+def view(): Tui[Event] / Model[Terminal, Unit] = rows([
+  input([OnKeyPress(box { ch => AppendSource(ch) })], "term"),
+  string(collect { do getSource(InteractionCalculus())() })
+])
+
+def start() = {
+  with cli
+  run(empty(), model::empty[NetState, Terminal, Unit](), TuiView(
+    update = box { ev =>
+      with cli
+      with model[Terminal, Unit, Unit, NetState]
+      ev.dispatch()
+    },
+    view = box {
+      with cli
+      with model[Terminal, Unit, Tui[Event], NetState]
+      view()
+    }))
+}

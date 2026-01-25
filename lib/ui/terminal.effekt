@@ -1,0 +1,11 @@
+record Terminal()
+
+def empty() = Terminal()
+
+extern def rawMode(): Unit = 
+  jsNode "(() => require('tty').setRawMode(true))()"
+  default { <> }
+
+extern def onKeyPress(handler: Char => Unit at {io, global}) at io: Unit =
+  jsNode "process.stdin.on('keypress', (letter, key) => $effekt.runToplevel((ks, k) => ${handler}(letter, ks, k)))"
+  default { <> }

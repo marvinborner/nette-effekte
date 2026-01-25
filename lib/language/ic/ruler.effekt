@@ -146,6 +146,7 @@ def apply(ctor: Constructor, substitutions: Ref[Map[Port, Port]]): Constructor =
   Constructor(pp, aux, ctor.kind)
 }
 
+// TODO: emit new redexes found by interacting
 def step(program: Program, redexes: RedexBag): Unit / { emit[Constructor], emit[Redex] } = {
   val annihilated = ref[Set[Constructor]](emptyGeneric())
   val substitutions = ref[Map[Port, Port]](emptyGeneric())

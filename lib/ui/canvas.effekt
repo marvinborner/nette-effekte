@@ -66,7 +66,8 @@ def draw(ctx: Context, triangle: Triangle): Unit = {
 }
 
 extern def atan2(x: Double, y: Double) at io: Double =
-  jsWeb "Math.atan2(${x}, ${y})"
+  js "Math.atan2(${x}, ${y})"
+  default { <> }
 
 // from https://stackoverflow.com/a/6333775
 def draw(ctx: Context, arrow: Arrow): Unit = {

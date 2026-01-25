@@ -4,39 +4,52 @@ extern type Context
 
 extern def getContext(node: Node, dim: String) at io: Context =
   jsWeb "${node}.getContext(${dim})"
+  default { <> }
 
 extern def save(ctx: Context) at io: Unit =
   jsWeb "${ctx}.save()"
+  default { <> }
 
 extern def restore(ctx: Context) at io: Unit =
   jsWeb "${ctx}.restore()"
+  default { <> }
 
 extern def fill(ctx: Context) at io: Unit =
   jsWeb "${ctx}.fill()"
+  default { <> }
 
 extern def scale(ctx: Context, x: Double, y: Double) at io: Unit =
   jsWeb "${ctx}.scale(${x}, ${y})"
+  default { <> }
 
 extern def beginPath(ctx: Context) at io: Unit =
   jsWeb "${ctx}.beginPath()"
+  default { <> }
 
 extern def closePath(ctx: Context) at io: Unit =
   jsWeb "${ctx}.closePath()"
+  default { <> }
 
 extern def stroke(ctx: Context) at io: Unit =
   jsWeb "${ctx}.stroke()"
+  default { <> }
 
 extern def moveTo(ctx: Context, x: Double, y: Double) at io: Unit =
   jsWeb "${ctx}.moveTo(${x}, ${y})"
+  default { <> }
 
 extern def lineTo(ctx: Context, x: Double, y: Double) at io: Unit =
   jsWeb "${ctx}.lineTo(${x}, ${y})"
+  default { <> }
 
 extern def translate(ctx: Context, x: Double, y: Double) at io: Unit =
   jsWeb "${ctx}.translate(${x}, ${y})"
+  default { <> }
 
 extern def setStrokeStyle(ctx: Context, style: String) at io: Unit =
   jsWeb "(() => (${ctx}.strokeStyle = ${style}))()"
+  default { <> }
 
 extern def setFillStyle(ctx: Context, style: String) at io: Unit =
   jsWeb "(() => (${ctx}.fillStyle = ${style}))()"
+  default { <> }

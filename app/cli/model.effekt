@@ -1,25 +1,41 @@
-import lib/language/ic/term
-import lib/net/net
-
 import app/net
 
-record NetState(program: Program)
-record Context()
+import lib/language/ic/term
+import lib/language/ic/ruler
+import lib/net/net
+import lib/net/netter
+import lib/ui/terminal
 
-def empty() = NetState(box {})
+record NetState(net: Net, program: Program, redexes: RedexBag, terminal: Terminal)
+
+def empty(): Net = box {}
+def empty(): Program = box {}
+def empty(): RedexBag = box {}
+def empty() = NetState(empty(), empty(), empty(), empty())
 
 def load(state: NetState) { prog: => Unit / emit[Constructor] }: NetState = {
+  with on[WrongFormat].panic // impossible by now
   val program: Program = collect { prog() }
-  NetState(program)
+  val net: Net = collect { source[Constructor] { program() } { net!() } }
+  val redexes: RedexBag = collect { program.redexes() }
+  NetState(net, program, redexes, empty())
 }
 
-def cli[R] { prog: => R / NetModel[NetState, Context, Unit] }: R =
+def step(state: NetState): NetState = {
+  val (loaded, redexes) = returning::collect {
+    state.load { state.program.step(state.redexes) } }
+  NetState(loaded.net, loaded.program, redexes, state.terminal)
+}
+
+def cli[R] { prog: => R / NetModel[NetState, Terminal, Unit] }: R =
   try prog()
-  with NetModel[NetState, Context, Unit] {
+  with NetModel[NetState, Terminal, Unit] {
     def empty() = resume(empty())
-    def context(net) = resume(Context())
     def load(net) = resume { { prog } => net.load { prog } }
+    def step(net) = resume { net.step }
+
+    // not relevant for cli
+    def context(net) = resume(Terminal())
     def render(net) = resume { => net }
-    def step(net) = resume { => net }
     def operation(net, op) = resume { => net }
   }

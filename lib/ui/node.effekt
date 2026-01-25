@@ -3,16 +3,25 @@
 
 extern type Node
 
-extern def getDocumentBody() at {}: Node = jsWeb "(document.body)"
+extern def empty() at {}: Node =
+  js "(null)"
+  default { <> }
+
+extern def getDocumentBody() at {}: Node =
+  jsWeb "(document.body)"
+  default { <> }
 
 val documentBody: Node = getDocumentBody()
 
-extern def getPixelRatio() at {}: Double = jsWeb "(window.devicePixelRatio || 1)"
+extern def getPixelRatio() at {}: Double =
+  jsWeb "(window.devicePixelRatio || 1)"
+  default { <> }
 
 val pixelRatio: Double = getPixelRatio()
 
 extern def onClick(node: Node, handler: () => Unit at {io, global}) at io: Unit =
   jsWeb "${node}.addEventListener('click', () => $effekt.runToplevel(${handler}))"
+  default { <> }
 
 extern def onScroll(node: Node, handler: Double => Unit at {io, global}) at io: Unit =
   jsWeb """(function() {
@@ -20,6 +29,7 @@ extern def onScroll(node: Node, handler: Double => Unit at {io, global}) at io: 
     ${node}.addEventListener('DOMMouseScroll', handler);
     ${node}.addEventListener('mousewheel', handler);
   })()"""
+  default { <> }
 
 // based on https://stackoverflow.com/a/5526721
 extern def onDrag(node: Node, handler: (Double, Double) => Unit at {io, global}) at io: Unit =
@@ -41,9 +51,11 @@ extern def onDrag(node: Node, handler: (Double, Double) => Unit at {io, global})
       if (dragStart) $effekt.runToplevel((ks, k) => ${handler}(lastX - dragStart.x, lastY - dragStart.y, ks, k))
     });
   })()"""
+  default { <> }
 
 extern def onKeyUp(node: Node, handler: String => Unit at {io, global}) at io: Unit =
   jsWeb "${node}.addEventListener('keyup', ({key}) => $effekt.runToplevel((ks, k) => ${handler}(key, ks, k)))"
+  default { <> }
 
 // let's just pretend we're using internet explorer :)
 extern def onResize(node: Node, handler: (Bool, Double, Double) => Unit at {io, global}) at io: Unit =
@@ -55,45 +67,59 @@ extern def onResize(node: Node, handler: (Bool, Double, Double) => Unit at {io, 
       return res;
     }))).observe(${node});
   })()"""
+  default { <> }
 
 extern def createElement(tag: String) at io: Node =
   jsWeb "document.createElement(${tag})"
+  default { <> }
 
 extern def createTextNode(text: String) at io: Node =
   jsWeb "document.createTextNode(${text})"
+  default { <> }
 
 extern def appendChild(node: Node, child: Node) at io: Node =
   jsWeb "${node}.appendChild(${child})"
+  default { <> }
 
 extern def replaceWith(node: Node, by: Node) at io: Unit =
   jsWeb "${node}.replaceWith(${by})"
+  default { <> }
 
 extern def getAttribute(node: Node, key: String) at io: String =
   jsWeb "(${node}.getAttribute(${key}) || '')"
+  default { <> }
 
 extern def setAttribute(node: Node, key: String, value: String) at io: Node =
   jsWeb "(function() { ${node}.setAttribute(${key}, ${value}); return ${node} })()"
+  default { <> }
 
 extern def innerHTML(node: Node, contents: String) at io: Node =
   jsWeb "(function() { ${node}.innerHTML = ${contents}; return ${node} })()"
+  default { <> }
 
 extern def setValue(node: Node, value: String) at io: Node =
   jsWeb "(function() { ${node}.value = ${value}; return ${node} })()"
+  default { <> }
 
 extern def setSize(node: Node, width: Double, height: Double) at io: Unit =
   jsWeb "(function() { ${node}.width = ${width}; ${node}.height = ${height} })()"
+  default { <> }
 
 extern def addClass(node: Node, class: String) at io: Node =
   jsWeb "(function() { ${node}.classList.add(${class}) })()"
+  default { <> }
 
 extern def unsafeQuerySelector(node: Node, query: String) at io: Node =
   jsWeb "${node}.querySelector(${query})"
+  default { <> }
 
 extern def unsafeGetElementById(id: String) at io: Node =
   jsWeb "document.getElementById(${id})"
+  default { <> }
 
 extern def value(node: Node) at io: String =
   jsWeb "(${node}.value)"
+  default { <> }
 
 def getElementById(id: String): Option[Node] = {
   val unsafeElement = unsafeGetElementById(id)

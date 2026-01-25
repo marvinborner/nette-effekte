@@ -4,25 +4,37 @@ import set
 import ref
 import string
 import test
+import tty
 
 import lib/ui/node
 import lib/ui/model
 import lib/ui/dirty
 import lib/ui/canvas
 import lib/ui/vector
+import lib/ui/terminal
 
 type Tag = Int
 
 record Event[Ev](tag: Tag, event: Ev)
 
+type Tui[Ev] {
+  String(content: String);
+  Input(handler: List[TuiHandler[Ev]], label: String);
+  Rows(elements: List[Tui[Ev]]);
+}
+
+type TuiHandler[Ev] {
+  OnKeyPress(handler: Char => Ev at {})
+}
+
 type Html[Ev] {
   Text(content: String);
-  Canvas(classes: List[String], handler: List[EventHandler[Ev]], canvas: Canvas)
-  Element(tag: String, classes: List[String], handler: List[EventHandler[Ev]], children: List[Html[Ev]], value: String)
+  Canvas(classes: List[String], handler: List[HtmlHandler[Ev]], canvas: Canvas)
+  Element(tag: String, classes: List[String], handler: List[HtmlHandler[Ev]], children: List[Html[Ev]], value: String)
   Tagged(element: Html[Ev], tag: Tag)
 }
 
-type EventHandler[Ev] {
+type HtmlHandler[Ev] {
   OnClick(handler: Ev)
   OnTick(handler: Ev)
   OnScroll(handler: Double => Ev at {})
@@ -35,22 +47,33 @@ extern type IdleDeadline
 
 extern def async(callback: => Unit at {io, global}) at io: Unit =
   jsWeb "setTimeout(() => $effekt.runToplevel((ks, k) => ${callback}(ks, k)), 0)"
+  default { <> }
 
 extern def requestIdleCallback(callback: IdleDeadline => Unit at {io, global}) at io: Unit =
   jsWeb "window.requestIdleCallback(deadline => $effekt.runToplevel((ks, k) => ${callback}(deadline, ks, k)))"
+  jsNode "require('node:process').nextTick(() => $effekt.runToplevel((ks, k) => ${callback}(0, ks, k)))"
+  default { <> }
 
 extern def requestAnimationFrame(callback: Int => Unit at {io, global}) at io: Unit =
   jsWeb "window.requestAnimationFrame(timestamp => $effekt.runToplevel((ks, k) => ${callback}(timestamp, ks, k)))"
+  default { <> }
 
 extern def style(path: String) at io: Unit =
   jsWeb "document.head.insertAdjacentHTML('beforeend', '<link rel=\"stylesheet\" href=${path} />')"
+  default { <> }
 
 effect tag(): Tag
 
-record View[St, Ev](
-  update: Ev => Unit / { State[St], Redraw } at {io, global},
-  view: () => Html[Ev] / { State[St], tag } at {io, global}
-)
+type View[St, Ev] {
+  HtmlView(
+    update: Ev => Unit / { State[St], Redraw } at {io, global},
+    view: () => Html[Ev] / { State[St], tag } at {io, global}
+  )
+  TuiView(
+    update: Ev => Unit / { State[St], Redraw } at {io, global},
+    view: () => Tui[Ev] / { State[St] } at {io, global}
+  )
+}
 
 /// in order for every tag to be equivalent on redraw, this tagger assumes elements to be static
 def tagger[R] { prog: => R / tag }: R = {
@@ -66,125 +89,176 @@ def tag![Ev](element: Html[Ev]): Html[Ev] / tag = Tagged(element, do tag())
 def tag(node: Node): Tag = crash("tag not found") { node.getAttribute("data-tag").toInt }
 def tag(node: Node, tag: Tag): Node = node.setAttribute("data-tag", tag.show)
 
-def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = app match {
-  case View(update, view) =>
-    val MS_TICK = 100 // tick every n ms
+def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = {
+  val inbox = ref[List[Event[Ev]]](Nil())
+  val state = ref(init)
+  val dirty = ref(Dirty())
 
-    val inbox = ref[List[Event[Ev]]](Nil())
-    val state = ref(init)
-    val dirty = ref(Dirty())
-    val dirtyTags = ref[Set[Tag]](emptyGeneric())
-    val tickers = ref[List[=> Unit at {io, global}]](Nil())
+  app match {
+    case HtmlView(update, view) =>
+      val MS_TICK = 100 // tick every n ms
 
-    def mark(tag: Tag, dirty: Dirtiness) =
-      if (dirty is Dirty()) dirtyTags.map { m => m.insert(tag) }
+      val dirtyTags = ref[Set[Tag]](emptyGeneric())
+      val tickers = ref[List[=> Unit at {io, global}]](Nil())
 
-    def onTick(element: Node, handler: => Unit at {io, global}) =
-      tickers.map { l => Cons(handler, l) }
+      def send(tag: Tag, ev: Ev): Unit = inbox.set(Cons(Event(tag, ev), inbox.get))
 
-    def send(tag: Tag, ev: Ev): Unit = inbox.set(Cons(Event(tag, ev), inbox.get))
+      def mark(tag: Tag, dirty: Dirtiness) =
+        if (dirty is Dirty()) dirtyTags.map { m => m.insert(tag) }
 
-    def handleEvent(element: Node, handler: List[EventHandler[Ev]]) = {
-      handler.foreach {
-        case OnClick(ev) =>
-          element.onClick(box { send(element.tag, ev) })
-        case OnTick(ev) =>
-          element.onTick(box { send(element.tag, ev) })
-        case OnScroll(ev) =>
-          element.onScroll(box { delta => send(element.tag, ev(delta)) })
-        case OnKeyUp(ev) =>
-          element.onKeyUp(box { key => send(element.tag, ev(element.value)) })
-        case OnDrag(ev) =>
-          element.onDrag(box { (x, y) => send(element.tag, ev(Vector(x, y))) })
-        case OnResize(ev) =>
-          element.onResize(box { (initial, width, height) =>
-            if (not(initial)) send(element.tag, ev(Vector(width, height)))
-          })
-      }
-    }
+      def onTick(element: Node, handler: => Unit at {io, global}) =
+        tickers.map { l => Cons(handler, l) }
 
-    // renders the Node to the DOM
-    def render(html: Html[Ev]): Node = html match {
-      case Tagged(html, tag) => html.render().tag(tag)
-      case Text(content) => createTextNode(content)
-      case Element(tag, classes, handler, children, value) =>
-        val el = createElement(tag)
-        el.setValue(value)
-        el.handleEvent(handler)
-        classes.foreach { class => el.addClass(class); () }
-        children.foreach { child =>
-          el.appendChild(child.render)
-          ()
-        }
-        el
-      case Canvas(classes, handler, canvas) => {
-        val el = createElement("canvas")
-        canvas.applyTo(el)
-        el.handleEvent(handler)
-        classes.foreach { class => el.addClass(class); () }
-        el
-      }
-    }
-
-    def merge(current: Node, fresh: Node) = {
-      with on[MissingValue].ignore // can happen on race conditions
-      dirtyTags.get.toList.sort.reverse.foreach { tag =>
-        current.querySelector("[data-tag='${tag.show}']").value.replaceWith(
-          fresh.querySelector("[data-tag='${tag.show}']").value
-        )
-      }
-    }
-
-    // renders the app with the current state
-    def render(): Unit = {
-      var required = false // TODO: again: how does OR work here??
-      if (dirty.get() is Dirty()) required = true
-      if (dirtyTags.get.nonEmpty) required = true
-
-      if (required) {
-        with tagger
-        tickers.set(Nil())
-        val rendered = statefully(state) { view() }.render
-
-        if (dirty.get() is Dirty()) {
-          root.clear
-          root.appendChild(rendered)
-          ()
-        }
-        else root.merge(rendered)
-
-        dirty.set(Clean())
-        dirtyTags.set(emptyGeneric())
-      }
-    }
-
-    val lastTime = ref(0)
-    def tickLoop(timestamp: Int): Unit = {
-      if (timestamp - lastTime.get > MS_TICK) {
-        tickers.get.foreach { handler => handler() }
-        lastTime.set(timestamp)
-      }
-      requestAnimationFrame(box tickLoop)
-    }
-
-    def idleLoop(deadline: IdleDeadline): Unit / {} = {
-      val messages = inbox.get.reverse
-      inbox.set(Nil())
-
-      if (messages.nonEmpty) {
-        messages.foreach { case Event(tag, ev) =>
-          with redraw { tag.mark(Dirty()) } { dirty.set(Dirty()) }
-          with statefully(state)
-          update(ev)
+      def handleEvent(element: Node, handler: List[HtmlHandler[Ev]]) =
+        handler.foreach {
+          case OnClick(ev) =>
+            element.onClick(box { send(element.tag, ev) })
+          case OnTick(ev) =>
+            element.onTick(box { send(element.tag, ev) })
+          case OnScroll(ev) =>
+            element.onScroll(box { delta => send(element.tag, ev(delta)) })
+          case OnKeyUp(ev) =>
+            element.onKeyUp(box { key => send(element.tag, ev(element.value)) })
+          case OnDrag(ev) =>
+            element.onDrag(box { (x, y) => send(element.tag, ev(Vector(x, y))) })
+          case OnResize(ev) =>
+            element.onResize(box { (initial, width, height) =>
+              if (not(initial)) send(element.tag, ev(Vector(width, height)))
+            })
         }
 
-        render()
+      // renders the Node to the DOM
+      def render(html: Html[Ev]): Node = html match {
+        case Tagged(html, tag) => html.render().tag(tag)
+        case Text(content) => createTextNode(content)
+        case Element(tag, classes, handler, children, value) =>
+          val el = createElement(tag)
+          el.setValue(value)
+          el.handleEvent(handler)
+          classes.foreach { class => el.addClass(class); () }
+          children.foreach { child =>
+            el.appendChild(child.render)
+            ()
+          }
+          el
+        case Canvas(classes, handler, canvas) => {
+          val el = createElement("canvas")
+          canvas.applyTo(el)
+          el.handleEvent(handler)
+          classes.foreach { class => el.addClass(class); () }
+          el
+        }
       }
 
+      def merge(current: Node, fresh: Node) = {
+        with on[MissingValue].ignore // can happen on race conditions
+        dirtyTags.get.toList.sort.reverse.foreach { tag =>
+          current.querySelector("[data-tag='${tag.show}']").value.replaceWith(
+            fresh.querySelector("[data-tag='${tag.show}']").value
+          )
+        }
+      }
+
+      // renders the app with the current state
+      def render(): Unit = {
+        var required = false // TODO: again: how does OR work here??
+        if (dirty.get() is Dirty()) required = true
+        if (dirtyTags.get.nonEmpty) required = true
+
+        if (required) {
+          with tagger
+          tickers.set(Nil())
+          val rendered = statefully(state) { view() }.render
+
+          if (dirty.get() is Dirty()) {
+            root.clear
+            root.appendChild(rendered)
+            ()
+          }
+          else root.merge(rendered)
+
+          dirty.set(Clean())
+          dirtyTags.set(emptyGeneric())
+        }
+      }
+
+      val lastTime = ref(0)
+      def tickLoop(timestamp: Int): Unit = {
+        if (timestamp - lastTime.get > MS_TICK) {
+          tickers.get.foreach { handler => handler() }
+          lastTime.set(timestamp)
+        }
+        requestAnimationFrame(box tickLoop)
+      }
+
+      def idleLoop(deadline: IdleDeadline): Unit / {} = {
+        val messages = inbox.get.reverse
+        inbox.set(Nil())
+
+        if (messages.nonEmpty) {
+          messages.foreach { case Event(tag, ev) =>
+            with redraw { tag.mark(Dirty()) } { dirty.set(Dirty()) }
+            with statefully(state)
+            update(ev)
+          }
+
+          render()
+        }
+
+        requestIdleCallback(box idleLoop)
+      }
+
+      render()
       requestIdleCallback(box idleLoop)
-    }
+      requestAnimationFrame(box tickLoop)
 
-    render()
-    requestIdleCallback(box idleLoop)
-    requestAnimationFrame(box tickLoop)
+    case TuiView(update, view) =>
+      def send(ev: Ev): Unit = inbox.set(Cons(Event(0, ev), inbox.get))
+
+      def handleEvent(handler: List[TuiHandler[Ev]]) =
+        handler.foreach {
+          case OnKeyPress(ev) =>
+            onKeyPress(box { letter => send(ev(letter)) })
+        }
+
+      def render(markup: Tui[Ev]): String = markup match {
+        case String(content) => content
+        case Input(handler, name) =>
+          handleEvent(handler)
+          name ++ ": "
+        case Rows(elements) => elements.map { element =>
+          element.render
+        }.join("\n")
+      }
+
+      def render(): Unit = {
+        if (dirty.get() is Dirty()) {
+          val rendered = statefully(state) { view() }.render
+          Screen::clear()
+          println(rendered)
+        }
+        dirty.set(Clean())
+      }
+
+      def idleLoop(deadline: IdleDeadline): Unit / {} = {
+        val messages = inbox.get.reverse
+        inbox.set(Nil())
+
+        if (messages.nonEmpty) {
+          messages.foreach { case Event(tag, ev) =>
+            with redraw { dirty.set(Dirty()) } { dirty.set(Dirty()) } // no partial redrawing
+            with statefully(state)
+            update(ev)
+          }
+
+          render()
+        }
+
+        // requestIdleCallback(box idleLoop)
+      }
+
+      rawMode()
+      render()
+      requestIdleCallback(box idleLoop)
+  }
 }
