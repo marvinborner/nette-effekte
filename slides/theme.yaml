@@ -1,0 +1,141 @@
+---
+default:
+  margin:
+    percent: 8
+  colors:
+    foreground: black
+    background: white
+
+slide_title:
+  alignment: center
+  padding_bottom: 1
+  padding_top: 1
+  colors:
+    foreground: dark_yellow
+  bold: true
+  font_size: 1
+
+code:
+  alignment: center
+  minimum_size: 0
+  minimum_margin:
+    percent: 0
+  theme_name: GitHub
+  background: false
+
+execution_output:
+  colors:
+    foreground: black
+  status:
+    running:
+      foreground: dark_blue
+    success:
+      foreground: dark_green
+    failure:
+      foreground: dark_red
+    not_started:
+      foreground: dark_yellow
+  padding:
+    horizontal: 2
+    vertical: 1
+
+inline_code:
+  colors:
+    foreground: dark_green
+
+intro_slide:
+  title:
+    alignment: center
+    colors:
+      foreground: dark_green
+    font_size: 2
+  subtitle:
+    alignment: center
+    colors:
+      foreground: dark_blue
+  event:
+    alignment: center
+    colors:
+      foreground: dark_green
+  location:
+    alignment: center
+    colors:
+      foreground: dark_blue
+  date:
+    alignment: center
+    colors:
+      foreground: dark_yellow
+  author:
+    alignment: center
+    colors:
+      foreground: black
+    positioning: page_bottom
+  footer: false
+
+headings:
+  h1:
+    prefix: "██"
+    colors:
+      foreground: dark_cyan
+  h2:
+    prefix: "▓▓▓"
+    colors:
+      foreground: dark_magenta
+  h3:
+    prefix: "▒▒▒▒"
+    colors:
+      foreground: dark_red
+  h4:
+    prefix: "░░░░░"
+    colors:
+      foreground: dark_blue
+  h5:
+    prefix: "░░░░░░"
+    colors:
+      foreground: dark_blue
+  h6:
+    prefix: "░░░░░░░"
+    colors:
+      foreground: dark_blue
+
+block_quote:
+  prefix: "▍ "
+  colors:
+    foreground: black
+    background: grey
+    prefix: dark_red
+
+alert:
+  prefix: "▍ "
+  base_colors:
+    foreground: black
+    background: grey
+  styles:
+    note:
+      color: dark_blue
+    tip:
+      color: dark_green
+    important:
+      color: dark_magenta
+    warning:
+      color: dark_yellow
+    caution:
+      color: dark_red
+
+typst:
+  colors:
+    foreground: "212529"
+
+footer:
+  style: empty
+
+modals:
+  selection_colors:
+    foreground: dark_yellow
+
+mermaid:
+  background: transparent
+  theme: default
+
+d2:
+  theme: 4
