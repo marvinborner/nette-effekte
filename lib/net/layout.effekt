@@ -19,7 +19,7 @@ def geometry(wire: Wire) { agents: => Unit / AgentStream }: (Vector, Vector) = {
   (from, from.direction(to))
 }
 
-def springTargets(wire: Wire, agent: Agent, length: Double) { agents: => Unit / AgentStream }: Unit / emit[Vector] = {
+def springTarget(wire: Wire, agent: Agent, length: Double) { agents: => Unit / AgentStream }: Unit / emit[Vector] = {
   val (pos, direction) = wire.geometry {agents}
   do emit((pos + direction.normalize) * length)
 }
@@ -29,9 +29,9 @@ def wireForce(agent: Agent, length: Double) { agents: => Unit / AgentStream } { 
   do emit(forceSum {
     for {
       for { agent.adverseAgents(wire) {agents} } { a =>
-        wire.flip.springTargets(a, length) {agents} }
+        wire.flip.springTarget(a, length) {agents} }
     } { adverseTarget =>
-      for { wire.springTargets(agent, length) {agents} } { agentTarget =>
+      for { wire.springTarget(agent, length) {agents} } { agentTarget =>
         do emit(agentTarget.attraction(adverseTarget))
       }
     }

@@ -6,13 +6,13 @@ import lib/net/net
 import lib/ui/model
 import lib/ui/dirty
 import lib/ui/vector
+import lib/language/ic/term
 import lib/language/ic/parser
 import lib/language/ic/compiler
 import lib/language/lc/compiler
 
-import lib/language/ic/term
-
-type Mode { SourceLanguage(); LambdaCalculus(); InteractionCalculus() }
+// TODO: add SourceLanguage
+type Mode { LambdaCalculus(); InteractionCalculus() }
 
 type TextStream = => Unit / emit[Char] at {global}
 record EvaluatorState[N](mode: Mode, sources: Map[Mode, TextStream], net: N, errors: String)
@@ -41,7 +41,6 @@ interface Model[C, O] {
 }
 
 def show(m: Mode) = m match {
-  case SourceLanguage()      => "Source Language"
   case LambdaCalculus()      => "Lambda Calculus"
   case InteractionCalculus() => "Interaction Calculus"
 }
@@ -49,10 +48,8 @@ def show(m: Mode) = m match {
 def empty[N, C, O](): EvaluatorState[N] / NetModel[N, C, O] = {
   var map = map::emptyGeneric[Mode, TextStream]()
   val emptyStream: => Unit / emit[Char] at {global} = box{}
-  map = map.put(SourceLanguage(), emptyStream)
   map = map.put(LambdaCalculus(), emptyStream)
   map = map.put(InteractionCalculus(), emptyStream)
-  // EvaluatorState(InteractionCalculus(), map, do empty(), "")
   EvaluatorState(LambdaCalculus(), map, do empty(), "")
 }
 
@@ -67,9 +64,8 @@ def report[E, N](proxy: on[E], rollback: EvaluatorState[N]) { prog: => Evaluator
 def nextMode[N](state: EvaluatorState[N]): EvaluatorState[N] / Redraw = {
   do redrawFull()
   state match {
-    case EvaluatorState(SourceLanguage(), sources, net, errors)      => EvaluatorState(LambdaCalculus(), sources, net, errors)
     case EvaluatorState(LambdaCalculus(), sources, net, errors)      => EvaluatorState(InteractionCalculus(), sources, net, errors)
-    case EvaluatorState(InteractionCalculus(), sources, net, errors) => EvaluatorState(SourceLanguage(), sources, net, errors)
+    case EvaluatorState(InteractionCalculus(), sources, net, errors) => EvaluatorState(LambdaCalculus(), sources, net, errors)
   }
 }
 
@@ -99,10 +95,11 @@ def render[N, C, O](state: EvaluatorState[N]): EvaluatorState[N] / { NetModel[N,
       EvaluatorState(InteractionCalculus(), sources, net_, "")
     }
     case EvaluatorState(LambdaCalculus(), sources, net, errors) => {
-      val net_ = do render(do load(net) { lc::compile!() })
-      EvaluatorState(LambdaCalculus(), sources, net_, "")
+      val prog: Program = collect { lc::compile!() } // reify for storing in IC source
+      val sources_ = sources.put(InteractionCalculus(), box { prog.show.each })
+      val net_ = do render(do load(net) { prog() })
+      EvaluatorState(LambdaCalculus(), sources_, net_, "")
     }
-    case _ => <>
   }
 }
 
@@ -111,12 +108,12 @@ def model[C, O, R, N] { prog: => R / Model[C, O] }: R / { State[EvaluatorState[N
 
   try { prog() }
   with Model[C, O] {
-    def render() = resume { modifyState { st => st.render } }
+    def render()        = resume { modifyState { st => st.render } }
     def stepReduction() = resume { modifyState { net => do step(net) } }
     def stepAnimation() = resume { modifyState { net => do render(net) } }
-    def nextMode() = resume { modifyState { st => st.nextMode } }
-    def setSource(c) = resume { modifyState { st => st.setSource(c) } }
-    def onContext(op) = resume { modifyState { net => do operation(net, op) } }
+    def nextMode()      = resume { modifyState { st => st.nextMode } }
+    def setSource(c)    = resume { modifyState { st => st.setSource(c) } }
+    def onContext(op)   = resume { modifyState { net => do operation(net, op) } }
 
     def getMode() = resume((do getState()).mode)
     def getSource(mode) = {

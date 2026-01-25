@@ -27,7 +27,20 @@ def show(port: Port) = port.name ++ port.pol.show()
 def show(ctor: Constructor) = {
   val pp = ctor.pp.show()
   val aux = ctor.aux.map { p => p.show() }.join(", ")
-  "${pp}(${aux})"
+  ctor.kind match {
+    case LightTriangle() => "${pp}(${aux})"
+    case DarkTriangle()  => "${pp}[${aux}]"
+  }
+}
+
+def show(prog: Program) = {
+  var res = ""
+  try prog()
+  with emit[Constructor] { ctor =>
+    res = "${res}${ctor.show}\n"
+    resume(())
+  }
+  res
 }
 
 def arity(ctor: Constructor) = ctor.aux.size
