@@ -3,6 +3,36 @@ the machinery behind it (`lib/`) and some tests (`test/`).
 
 # app
 
+The app consists of an interactive mode (only running in `js-web` due to
+its HTML rendering) and a terminal UI (working only in `js` for now).
+
+We use a stateless model-view architecture inspired by reactive
+frameworks such as React or Elm. Its hidden internals are defined in
+`lib/ui/{view,model}`. There is a global model (`app/model`) that
+handles generic operation for both backends. The only interface the
+backend models have to implement is the `NetModel` (`app/net`).
+
+Specifically, each app has a `view` function that defines its frontend.
+This function can dispatch effects then handled by the generic model and
+then potentially forwarded to the backend models.
+
+`app/model` handles things such as compiling/rendering the input,
+storing the current configuration/source and forwarding other requests
+to the respective backend models.
+
+`app/interactive/` is the main backend. Its HTML view is defined
+declaratively. Internally, it uses tagging machinery that tags each HTML
+tag uniquely, such that partial redraws can happen. The rendering in the
+model converts from the `NetStream` to geometric objects drawable on a
+canvas (more below). The rest of the code should be fairly
+self-explanatory.
+
+`app/cli/` is an experimental terminal interface (TUI) for NodeJS. It
+translates only from the lambda calculus and does not feature a
+graphical interpretation of the net. Otherwise it supports similar
+features as the interactive implementation and shares some code with it
+(including the common `NetModel` interface).
+
 # lib
 
 The library is responsible for multiple aspects of our program. For one,

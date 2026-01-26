@@ -1,5 +1,7 @@
 # Theory
 
+> this file is best read with a good monospace font in a terminal
+
 This project is all about interaction combinators. Interaction
 combinators are a subset of interaction nets, a graphical model of
 computation. Specifically, we have two variadic agents; the constructor
@@ -99,6 +101,15 @@ first place; this being increased sharing even under abstractions,
 incremental superpositions, "optimal reduction")
 
 ## Lambda Calculus
+
+The lambda calculus syntax we parse and support is strictly the
+following:
+
+    x ::= a, b, abc, ...
+    e ::= x | x => e | (e .. e)
+
+For example $(\lambda x.x x) \lambda y.y$ would be written as
+`(x => (x x) y => y)` in our syntax.
 
 We choose the following translation:
 
