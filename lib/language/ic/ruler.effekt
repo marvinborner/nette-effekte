@@ -93,7 +93,7 @@ def inspector[A](left: List[Port], right: List[Port]) { prog: () => A / Inspect 
   with on[OutOfBounds].panic() // malformed rules.. idc
   try prog()
   with Inspect {
-    def left(idx) = resume(left.get(idx))
+    def left(idx)  = resume(left.get(idx))
     def right(idx) = resume(right.get(idx))
   }
 

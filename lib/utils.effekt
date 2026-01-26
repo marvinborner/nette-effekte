@@ -2,6 +2,12 @@
 
 import test
 
+// println without the ln: only for jsNode, of course
+extern def print(s: String) at io: Unit =
+  jsNode "process.stdout.write(${s})"
+  jsWeb "console.log(${s})"
+  default { println(s) }
+
 def size[A] { s: => Unit / emit[A] }: Int = {
   var size = 0
   try s()

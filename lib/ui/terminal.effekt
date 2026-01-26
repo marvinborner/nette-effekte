@@ -1,11 +1,20 @@
-record Terminal()
+// left empty for future expansion
+record Terminal(data: String)
 
-def empty() = Terminal()
+def empty() = Terminal("")
 
 extern def rawMode(): Unit = 
-  jsNode "(() => require('tty').setRawMode(true))()"
+  jsNode """(() => {
+    require('readline').emitKeypressEvents(process.stdin);
+    process.stdin.setRawMode(true);
+    // process.stdin.resume();
+  })()"""
   default { <> }
 
-extern def onKeyPress(handler: Char => Unit at {io, global}) at io: Unit =
+extern def onKeyPress(handler: String => Unit at {io, global}) at io: Unit =
   jsNode "process.stdin.on('keypress', (letter, key) => $effekt.runToplevel((ks, k) => ${handler}(letter, ks, k)))"
+  default { <> }
+
+extern def removeKeyPressListeners() at io: Unit =
+  jsNode "process.stdin.removeAllListeners('keypress');"
   default { <> }

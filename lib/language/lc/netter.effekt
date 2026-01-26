@@ -24,11 +24,11 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
   with loop
 
   val term = do read[Term]()
-  println("term: '${term.show}'")
+  // println("term: '${term.show}'")
 
   def bind(bindings: Map[String, List[Port]], x: String): Label = {
     with on[MissingValue].panic() // can not happen
-    val bound: List[Port] = bindings.getOrElse(x) { wrongFormat() }
+    val bound: List[Port] = bindings.getOrElse(x) { Nil() } // nil is the affine-erase case
     val duplicity = bound.size
     duplicity match {
       case 1 => bound.head.name // linear: no duplicator required
@@ -40,7 +40,7 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
     }
   }
 
-  try term.cata
+  val context = try term.cata
   with TermF[Context] {
     def sym(x) = {
       val px = do port(x ++ "Sym")
@@ -64,5 +64,6 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
     }
   }
 
-  ()
+  if (context.bindings.size > 0)
+    wrongFormat("term is open: " ++ context.bindings.keys.join(", "))
 }

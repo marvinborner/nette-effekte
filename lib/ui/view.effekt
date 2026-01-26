@@ -6,6 +6,7 @@ import string
 import test
 import tty
 
+import lib/utils
 import lib/ui/node
 import lib/ui/model
 import lib/ui/dirty
@@ -21,10 +22,11 @@ type Tui[Ev] {
   String(content: String);
   Input(handler: List[TuiHandler[Ev]], label: String);
   Rows(elements: List[Tui[Ev]]);
+  Columns(elements: List[Tui[Ev]]);
 }
 
 type TuiHandler[Ev] {
-  OnKeyPress(handler: Char => Ev at {})
+  OnKeyPress(handler: String => Ev at {})
 }
 
 type Html[Ev] {
@@ -51,8 +53,9 @@ extern def async(callback: => Unit at {io, global}) at io: Unit =
 
 extern def requestIdleCallback(callback: IdleDeadline => Unit at {io, global}) at io: Unit =
   jsWeb "window.requestIdleCallback(deadline => $effekt.runToplevel((ks, k) => ${callback}(deadline, ks, k)))"
-  jsNode "require('node:process').nextTick(() => $effekt.runToplevel((ks, k) => ${callback}(0, ks, k)))"
+  jsNode "setTimeout(() => $effekt.runToplevel((ks, k) => ${callback}(0, ks, k)), 1)"
   default { <> }
+  // jsNode "require('node:process').nextTick(() => $effekt.runToplevel((ks, k) => ${callback}(0, ks, k)))"
 
 extern def requestAnimationFrame(callback: Int => Unit at {io, global}) at io: Unit =
   jsWeb "window.requestAnimationFrame(timestamp => $effekt.runToplevel((ks, k) => ${callback}(timestamp, ks, k)))"
@@ -215,26 +218,31 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = {
     case TuiView(update, view) =>
       def send(ev: Ev): Unit = inbox.set(Cons(Event(0, ev), inbox.get))
 
-      def handleEvent(handler: List[TuiHandler[Ev]]) =
+      def handleEvent(handler: List[TuiHandler[Ev]]) = {
+        removeKeyPressListeners()
         handler.foreach {
           case OnKeyPress(ev) =>
             onKeyPress(box { letter => send(ev(letter)) })
         }
+      }
 
       def render(markup: Tui[Ev]): String = markup match {
         case String(content) => content
         case Input(handler, name) =>
           handleEvent(handler)
-          name ++ ": "
+          name
         case Rows(elements) => elements.map { element =>
           element.render
         }.join("\n")
+        case Columns(elements) => elements.map { element =>
+          element.render
+        }.join("\t")
       }
 
       def render(): Unit = {
         if (dirty.get() is Dirty()) {
           val rendered = statefully(state) { view() }.render
-          Screen::clear()
+          Screen::clear().print
           println(rendered)
         }
         dirty.set(Clean())
@@ -254,9 +262,10 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = {
           render()
         }
 
-        // requestIdleCallback(box idleLoop)
+        requestIdleCallback(box idleLoop)
       }
 
+      hideCursor().print
       rawMode()
       render()
       requestIdleCallback(box idleLoop)

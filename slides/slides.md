@@ -1,5 +1,5 @@
 ---
-title: "Nette Effekte"
+title: "nette effekte"
 sub_title: "(EPE Project, Marvin Borner)"
 date: ""
 theme:
@@ -9,8 +9,8 @@ theme:
 <!-- alignment: center -->
 <!-- jump_to_middle -->
 
-`Nette Effekte` \
-(interaction net in effekt)
+`net`te `effekt`e\
+(interaction nets in effekt)
 
 ```
   ╭─────╮
@@ -38,12 +38,21 @@ theme:
 <!-- column: 0 -->
 
 - `interaction combinators`: graph-based model of computation
-- web interface (elm-ish):
+
+<!-- pause -->
+|
+- **web** interface (react-ish):
     - **parse** calculus
     - "**type-check**" etc.
     - **compile** to interaction calculus
     - **rule** stepper (by DSL)
     - interactive **force-directed** rendering
+
+<!-- pause -->
+|
+- **tui** interface (_also_ react-ish):
+    - ... (same model)
+    - just **raw** IC output
 
 <!-- column: 1 -->
 
@@ -116,6 +125,24 @@ div([
     OnResize(box { v => SetCanvasSize(v) }),
     OnTick(StepAnimation()),
   ], ["inet"], do getContext())
+]),
+...
+```
+
+<!-- end_slide -->
+
+# effects
+## tui model
+
+```scala
+...
+columns([
+  input([OnKeyPress(box { key => AppendSource(key) })], "Term".green),
+  string(collect { do getSource(LambdaCalculus())() }),
+]),
+columns([
+  string("Errors".red),
+  string(do getErrors())
 ]),
 ...
 ```
@@ -286,17 +313,18 @@ with TermF[Context] {
 - fresh ports
 - exceptions
 - lexing/parsing
-- net inspection
+- net introspection
 - partial redrawing (+ tagging system)
 
 <!-- end_slide -->
 
-# problems
+# wishlist
 
 - records: `Agent(...) { .name = "foo" }`
-- memory leaks (browser OOM)
-- long compilation times
-- reification of streams with side effects (e.g. parsing)
+- less memory leaks (browser often OOM'd)
+- shorter compilation times
+- `print` in prelude
+- `or` patterns (no more duplication!)
 
 <!-- end_slide -->
 
@@ -306,9 +334,19 @@ with TermF[Context] {
 
 | **language**  | **loc** |
 |---------------|---------|
-| effekt        | 1700    |
-| js-web -O0    | 9500    |
-| js-web -O3    | 8300    |
+| effekt        | 2300    |
+| js-web -O0    | 9500?   |
+| js-web -O3    | 8300?   |
+| js     -O3    | 6500    |
+
+libraries used: prelude, map, process, ref, regex, set, string, test, tty
+
+<!-- end_slide -->
+
+<!-- alignment: center -->
+<!-- jump_to_middle -->
+
+_demo_
 
 <!-- end_slide -->
 

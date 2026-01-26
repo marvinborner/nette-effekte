@@ -11,6 +11,10 @@ import lib/language/ic/parser
 import lib/language/ic/compiler
 import lib/language/lc/compiler
 
+extern def interactive(): Bool =
+  jsWeb "true"
+  default { false }
+
 // TODO: add SourceLanguage
 type Mode { LambdaCalculus(); InteractionCalculus() }
 
@@ -18,9 +22,8 @@ type TextStream = => Unit / emit[Char] at {global}
 record EvaluatorState[N](mode: Mode, sources: Map[Mode, TextStream], net: N, errors: String)
 
 def map[A, B](state: EvaluatorState[A]) { f: A => B }: EvaluatorState[B] = state match {
-  case EvaluatorState(mode, sources, net, errors) => {
+  case EvaluatorState(mode, sources, net, errors) =>
     EvaluatorState(mode, sources, f(net), errors)
-  }
 }
 
 def modifyState[N] { f: N => N }: Unit / State[EvaluatorState[N]] =
@@ -70,6 +73,9 @@ def nextMode[N](state: EvaluatorState[N]): EvaluatorState[N] / Redraw = {
 }
 
 def setSource[N](state: EvaluatorState[N], s: String): EvaluatorState[N] / Redraw = {
+  if (not(interactive())) // redraw only on terminal.. (TODO?)
+    do redrawFull()
+
   state match {
     case EvaluatorState(mode, sources, net, errors) => {
       // this would have been so cool but would only work for linear ASCII input (no escape, arrow keys)

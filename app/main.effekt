@@ -1,12 +1,9 @@
+import app/model
 import app/cli/view
 import app/interactive/view
 
 import lib/language/ic/parser
 import lib/language/ic/term
-
-extern def interactive(): Bool =
-  jsWeb "true"
-  default { false }
 
 def main() =
   if (interactive()) interactive::start()

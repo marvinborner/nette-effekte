@@ -62,9 +62,19 @@ def tests() = suite("└ lc tests") {
   }
 
   test("lc compilation: fail on open variable") {
-    val ctors: List[Constructor] = collect {
+    val ctors1: List[Constructor] = collect {
+      with assertThrows[WrongFormat]
+      with source[Char] { "x".each }
+      compile!()
+    }
+    val ctors2: List[Constructor] = collect {
       with assertThrows[WrongFormat]
       with source[Char] { "x => y".each }
+      compile!()
+    }
+    val ctors3: List[Constructor] = collect {
+      with assertThrows[WrongFormat]
+      with source[Char] { "x => (x y)".each }
       compile!()
     }
   }

@@ -1,5 +1,9 @@
 module cli
 
+import process
+import tty
+
+import lib/utils
 import lib/ui/node
 import lib/ui/view
 import lib/ui/dirty
@@ -13,22 +17,55 @@ val MODE = LambdaCalculus()
 def string[Ev](content: String) = String[Ev](content)
 def input[Ev](handlers: List[TuiHandler[Ev]], label: String) = Input[Ev](handlers, label)
 def rows[Ev](elements: List[Tui[Ev]]) = Rows[Ev](elements)
+def columns[Ev](elements: List[Tui[Ev]]) = Columns[Ev](elements)
 
-def append(text: TextStream, ch: Char): String = collect { text(); do emit(ch) }
+def append(text: TextStream, ch: String): String = collect { text(); ch.each }
+
+def dropLast(text: TextStream): String =
+  with on[MissingValue].default { "" }
+  collect[Char] { text() }.init.map { ch => ch.show }.join("")
 
 type Event {
+  Render();
   StepReduction();
-  AppendSource(ch: Char);
+  AppendSource(ch: String); // js string
+  UndoSource();
+  Exit();
 }
 
+// we have (very minimal) logic here to match the common interface of interactive/
 def dispatch(msg: Event): Unit / { Model[Terminal, Unit], Redraw } = msg match {
+  case Render()         => do render()
   case StepReduction()  => do stepReduction()
   case AppendSource(ch) => do setSource(do getSource(MODE).append(ch))
+  case UndoSource()     => do setSource(do getSource(MODE).dropLast)
+  case Exit()           => exit(0)
 }
 
-def view(): Tui[Event] / Model[Terminal, Unit] = rows([
-  input([OnKeyPress(box { ch => AppendSource(ch) })], "term"),
-  string(collect { do getSource(InteractionCalculus())() })
+// TODO: `or` patterns!?
+def handle(key: String) = key match {
+  case "\r"   => Render() // enter
+  case "\n"   => Render()
+  case "!"    => StepReduction()
+  case "\u8"  => UndoSource() // backspace
+  case "\u7f" => UndoSource()
+  case "\u3"  => Exit() // Ctrl+c
+  case _      => AppendSource(key)
+}
+
+def view(): Tui[Event] / { Model[Terminal, Unit], Formatted } = rows([
+  columns([
+    input([OnKeyPress(box { key => handle(key) })], "LC Term".green),
+    string(collect { do getSource(LambdaCalculus())() }),
+  ]),
+  string(""),
+  columns([
+    string("Errors".red),
+    string(do getErrors())
+  ]),
+  string(""),
+  string("Compiled IC".green ++ " (step via '!')".dim),
+  string(do getContext().data.dim)
 ])
 
 def start() = {
@@ -42,6 +79,7 @@ def start() = {
     view = box {
       with cli
       with model[Terminal, Unit, Tui[Event], NetState]
+      with Formatted::formatting
       view()
     }))
 }

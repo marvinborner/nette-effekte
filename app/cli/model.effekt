@@ -4,6 +4,7 @@ import lib/language/ic/term
 import lib/language/ic/ruler
 import lib/net/net
 import lib/net/netter
+import lib/ui/dirty
 import lib/ui/terminal
 
 record NetState(net: Net, program: Program, redexes: RedexBag, terminal: Terminal)
@@ -18,13 +19,14 @@ def load(state: NetState) { prog: => Unit / emit[Constructor] }: NetState = {
   val program: Program = collect { prog() }
   val net: Net = collect { source[Constructor] { program() } { net!() } }
   val redexes: RedexBag = collect { program.redexes() }
-  NetState(net, program, redexes, empty())
+  NetState(net, program, redexes, Terminal(program.show))
 }
 
-def step(state: NetState): NetState = {
+def step(state: NetState): NetState / Redraw = {
+  do redrawFull()
   val (loaded, redexes) = returning::collect {
     state.load { state.program.step(state.redexes) } }
-  NetState(loaded.net, loaded.program, redexes, state.terminal)
+  NetState(loaded.net, loaded.program, redexes, Terminal(loaded.program.show))
 }
 
 def cli[R] { prog: => R / NetModel[NetState, Terminal, Unit] }: R =
@@ -33,9 +35,9 @@ def cli[R] { prog: => R / NetModel[NetState, Terminal, Unit] }: R =
     def empty() = resume(empty())
     def load(net) = resume { { prog } => net.load { prog } }
     def step(net) = resume { net.step }
+    def context(net) = resume(net.terminal)
 
     // not relevant for cli
-    def context(net) = resume(Terminal())
     def render(net) = resume { => net }
     def operation(net, op) = resume { => net }
   }
