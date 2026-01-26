@@ -88,7 +88,7 @@ def load(state: NetState) { prog: => Unit / emit[Constructor] }: NetState / Redr
   NetState(net, program, redexes, state.canvas)
 }
 
-def step(state: NetState): NetState / Redraw = {
+def step(state: NetState): NetState / { Redraw, fail } = {
   val (loaded, redexes) = returning::collect {
     state.load { state.program.step(state.redexes) } }
   NetState(loaded.net, loaded.program, redexes, loaded.canvas)
@@ -101,6 +101,6 @@ def interactive[R] { prog: => R / NetModel[NetState, Canvas, CanvasOp] }: R =
     def context(net) = resume(net.canvas)
     def load(net) = resume { { prog } => net.load { prog } }
     def render(net) = resume { net.render }
-    def step(net) = resume { net.step }
+    def step(net) = resume { attempt { net.step } { => net } }
     def operation(net, op) = resume { net.operation(op) }
   }

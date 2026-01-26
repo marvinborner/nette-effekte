@@ -2,6 +2,7 @@
 
 import map
 
+import lib/utils
 import lib/net/net
 import lib/language/lc/term
 import lib/language/ic/term
@@ -29,13 +30,27 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
   def bind(bindings: Map[String, List[Port]], x: String): Label = {
     with on[MissingValue].panic() // can not happen
     val bound: List[Port] = bindings.getOrElse(x) { Nil() } // nil is the affine-erase case
+
     val duplicity = bound.size
     duplicity match {
-      case 1 => bound.head.name // linear: no duplicator required
-      case n => {
+      case 0 => 
+        val pk = do port(x ++ "Era")
+        do emit(Constructor(Port(pk, Neg()), [], DarkTriangle()))
+        pk
+      case 1 => // without our semantics: `bound.head.name`
         val pk = do port(x ++ "Dup")
         do emit(Constructor(Port(pk, Neg()), bound, DarkTriangle()))
         pk
+      case n => {
+        // binary duplication spine (TODO: tree or just `do emit(Constructor(Port(pk, Neg()), bound, DarkTriangle()))`)
+        var left = bound.head.name
+        var pp = ""
+        bound.tail.foreach { bind =>
+          pp = do port(x ++ "Dup")
+          do emit(Constructor(Port(pp, Neg()), [Port(left, Pos()), bind], DarkTriangle()))
+          left = pp
+        }
+        left
       }
     }
   }

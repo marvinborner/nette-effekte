@@ -20,7 +20,8 @@ def tests() = suite("└ lc tests") {
       compile!()
     }
     assertEqual(ctors, [
-      Constructor(Port("kAbs2", Pos()), [Port("xSym1", Pos()), Port("xSym1", Neg())], LightTriangle())]) // (x => x)_k
+      Constructor(Port("xDup3", Neg()), [Port("xSym1", Pos())], DarkTriangle()),                          // dup x.x1
+      Constructor(Port("kAbs2", Pos()), [Port("xDup3", Pos()), Port("xSym1", Neg())], LightTriangle())])  // (x => x1)_k
   }
 
   test("lc compilation: omega") {
@@ -42,9 +43,11 @@ def tests() = suite("└ lc tests") {
       compile!()
     }
     assertEqual(ctors, [
-      Constructor(Port("kAbs3", Pos()), [Port("xSym2", Pos()), Port("xSym2", Neg())], LightTriangle()),  // (x => x)_k3
-      Constructor(Port("xSym1", Neg()), [Port("kAbs3", Neg()), Port("kApp4", Pos())], LightTriangle()),  // (x k3)_k4
-      Constructor(Port("kAbs5", Pos()), [Port("xSym1", Pos()), Port("kApp4", Neg())], LightTriangle())]) // (x => k5)_k5
+      Constructor(Port("xDup4", Neg()), [Port("xSym2", Pos())], DarkTriangle()),                         // dup x.x2
+      Constructor(Port("kAbs3", Pos()), [Port("xDup4", Pos()), Port("xSym2", Neg())], LightTriangle()),  // (x => x)_k3
+      Constructor(Port("xSym1", Neg()), [Port("kAbs3", Neg()), Port("kApp5", Pos())], LightTriangle()),  // (x k3)_k5
+      Constructor(Port("xDup7", Neg()), [Port("xSym1", Pos())], DarkTriangle()),                         // dup x.x1
+      Constructor(Port("kAbs6", Pos()), [Port("xDup7", Pos()), Port("kApp5", Neg())], LightTriangle())]) // (x => k6)_k5
   }
 
   test("lc compilation: complex") {
@@ -57,11 +60,12 @@ def tests() = suite("└ lc tests") {
       Constructor(Port("xSym1", Neg()), [Port("xSym2", Neg()), Port("kApp3", Pos())], LightTriangle()),  // (x1 x2)_k3
       Constructor(Port("xDup5", Neg()), [Port("xSym1", Pos()), Port("xSym2", Pos())], DarkTriangle()),   // dup x.x1 x2
       Constructor(Port("kAbs4", Pos()), [Port("xDup5", Pos()), Port("kApp3", Neg())], LightTriangle()),  // (x => k3)_k4
-      Constructor(Port("kAbs7", Pos()), [Port("ySym6", Pos()), Port("ySym6", Neg())], LightTriangle()),  // (y => y)_k7
-      Constructor(Port("kAbs4", Neg()), [Port("kAbs7", Neg()), Port("kApp8", Pos())], LightTriangle())]) // (k4 k7)_k8
+      Constructor(Port("yDup8", Neg()), [Port("ySym6", Pos())], DarkTriangle()),                         // dup y.y1
+      Constructor(Port("kAbs7", Pos()), [Port("yDup8", Pos()), Port("ySym6", Neg())], LightTriangle()),  // (y => y1)_k7
+      Constructor(Port("kAbs4", Neg()), [Port("kAbs7", Neg()), Port("kApp9", Pos())], LightTriangle())]) // (k4 k7)_k9
   }
 
-  test("lc compilation: fail on open variable") {
+  test("lc compilation: fail on open terms") {
     val ctors1: List[Constructor] = collect {
       with assertThrows[WrongFormat]
       with source[Char] { "x".each }

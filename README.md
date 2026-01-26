@@ -9,7 +9,7 @@
      │ ╰───╯ │
      ╰───────╯
 
--   [THEORY](THEORY.md)
+-   [THEORY](THEORY.txt)
 -   [ARCHITECTURE](ARCHITECTURE.md)
 
 > no ai was used for any part of this project
@@ -43,20 +43,23 @@ effekt --backend js-web app/main.effekt
 If building has finished successfully, Effekt will give you a link you
 can open in a browser (recommended: modern desktop firefox).
 
-You can enter terms in the left panel (see [THEORY](THEORY.md) for the
+You can enter terms in the left panel (see [THEORY](THEORY.txt) for the
 syntax). Multiple lines will be interpreted as multiple constructors or
 multiple lambda terms. You can then render the input by clicking the
 *render* button. Pan/zoom the produced graph by dragging/clicking your
 mouse. Step the reducer by pressing *step*. Change the source language
 by pressing the *mode* button.
 
-## cli
+The rendered triangles are mapped to the following: Light triangles =
+constructors, dark triangles = duplicators.
+
+## tui
 
 ``` bash
 effekt --backend js app/main.effekt
 ```
 
-The CLI only supports lambda terms (see [THEORY](THEORY.md) for the
+The TUI only supports lambda terms (see [THEORY](THEORY.txt) for the
 syntax). Enter a term and press enter to compile. Step reduction with an
 exclamation mark `!`. Exit with `Ctrl+c`.
 
@@ -70,7 +73,7 @@ effekt --backend js test/main.effekt
 
 ## lambda calculus
 
-Remember the [THEORY](THEORY.md): for now this only supports a very
+Remember the [THEORY](THEORY.txt): for now this only supports a very
 small subset of the lambda calculus (we do not even label duplicators)!
 Though at least the linear lambda calculus is supported.
 
@@ -91,5 +94,6 @@ Though at least the linear lambda calculus is supported.
 -   the parser emits successfully parsed parts of the term eagerly, so
     if there's some garbage after correctly parsed code, it will not
     complain
+-   non-binary duplication is not fully supported for now
 -   if you leave the site open for too long, your memory will eventually
     run out

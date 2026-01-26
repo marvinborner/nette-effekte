@@ -9,13 +9,14 @@ extern def empty() at {}: Node =
 
 extern def getDocumentBody() at {}: Node =
   jsWeb "(document.body)"
+  jsNode "undefined"
   default { <> }
 
 val documentBody: Node = getDocumentBody()
 
 extern def getPixelRatio() at {}: Double =
   jsWeb "(window.devicePixelRatio || 1)"
-  default { <> }
+  default { 1.0 }
 
 val pixelRatio: Double = getPixelRatio()
 

@@ -1,7 +1,7 @@
 // left empty for future expansion
-record Terminal(data: String)
+record Terminal(data: String, highlighted: List[String])
 
-def empty() = Terminal("")
+def empty() = Terminal("", Nil())
 
 extern def rawMode(): Unit = 
   jsNode """(() => {

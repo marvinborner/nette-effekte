@@ -53,7 +53,7 @@ extern def async(callback: => Unit at {io, global}) at io: Unit =
 
 extern def requestIdleCallback(callback: IdleDeadline => Unit at {io, global}) at io: Unit =
   jsWeb "window.requestIdleCallback(deadline => $effekt.runToplevel((ks, k) => ${callback}(deadline, ks, k)))"
-  jsNode "setTimeout(() => $effekt.runToplevel((ks, k) => ${callback}(0, ks, k)), 1)"
+  jsNode "setTimeout(() => $effekt.runToplevel((ks, k) => ${callback}(0, ks, k)), 0)"
   default { <> }
   // jsNode "require('node:process').nextTick(() => $effekt.runToplevel((ks, k) => ${callback}(0, ks, k)))"
 

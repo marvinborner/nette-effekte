@@ -21,6 +21,18 @@ def init[A](l: List[A]): List[A] / Exception[MissingValue] = l match {
   case Cons(a, as) => Cons(a, as.init)
 }
 
+def exhaustively[R](init: R) { program: () => R / fail }: R =
+  var res: R = init
+  try {
+    def go(): R = {
+      res = program()
+      go()
+    }
+    go()
+  } with fail {
+    res
+  }
+
 def assertNotThrown[E](ex: on[E]) { body: => Unit / Exception[E] }: Unit / Assertion =
   ex.default { do assert(false, "Unexpected Exception") } {body}
 

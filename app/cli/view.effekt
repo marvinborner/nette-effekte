@@ -53,6 +53,14 @@ def handle(key: String) = key match {
   case _      => AppendSource(key)
 }
 
+def highlight(terminal: Terminal) =
+  terminal.data.split("\n").map { line =>
+    if (terminal.highlighted.contains(line) { (a, b) => a == b })
+      line.bold
+    else
+      line.dim
+  }.join("\n")
+
 def view(): Tui[Event] / { Model[Terminal, Unit], Formatted } = rows([
   columns([
     input([OnKeyPress(box { key => handle(key) })], "LC Term".green),
@@ -65,7 +73,7 @@ def view(): Tui[Event] / { Model[Terminal, Unit], Formatted } = rows([
   ]),
   string(""),
   string("Compiled IC".green ++ " (step via '!')".dim),
-  string(do getContext().data.dim)
+  string(do getContext().highlight)
 ])
 
 def start() = {

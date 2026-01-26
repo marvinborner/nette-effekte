@@ -1,6 +1,4 @@
-# Theory
-
-> this file is best read with a good monospace font in a terminal
+= Theory =
 
 This project is all about interaction combinators. Interaction
 combinators are a subset of interaction nets, a graphical model of
@@ -100,7 +98,7 @@ why you would typically want to translate to interaction nets in the
 first place; this being increased sharing even under abstractions,
 incremental superpositions, "optimal reduction")
 
-## Lambda Calculus
+== Lambda Calculus ==
 
 The lambda calculus syntax we parse and support is strictly the
 following:
@@ -149,10 +147,11 @@ We choose the following translation:
                      fv(N)   p
 
 Beware of edge cases in the abstraction translation: If the variable is
-bound once (linearly), no duplicator is required. If it is not bound at
-all, the duplicator is nilary and becomes an eraser.
+bound once (linearly), it still gets translated to a unary duplicator.
+If it is not bound at all, the duplicator is nilary and becomes an
+eraser.
 
-## Resources
+== Resources ==
 
 Drawings were done by me (for another project).
 
