@@ -1,16 +1,17 @@
 import map
 
+import lib/utils
 import lib/language/ic/term
 
 def checkPolarities(): Unit / { Exception[WrongFormat], read[Constructor], emit[Constructor] } = {
-  var map: Map[String, Polarity] = emptyGeneric()
+  var map: Map[String, SuperPort] = emptyGeneric()
 
-  def check(port: Port) = {
+  def check(port: SuperPort) = {
     map.get(port.name) match {
-      case Some(Pos()) and port.pol is Neg() => map = map.delete(port.name)
-      case Some(Neg()) and port.pol is Pos() => map = map.delete(port.name)
-      case Some(_) => wrongFormat("invalid '${port.pol.show}'-polarity of ${port.name}")
-      case None() => map = map.put(port.name, port.pol)
+      case Some(Right(Pos(_))) and port is Left(Neg(_)) => map = map.delete(port.name)
+      case Some(Left(Neg(_))) and port is Right(Pos(_)) => map = map.delete(port.name)
+      case Some(_) => wrongFormat("invalid polarity of ${port.name}")
+      case None() => map = map.put(port.name, port)
     }
   }
 

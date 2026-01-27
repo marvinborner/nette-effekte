@@ -7,186 +7,20 @@ import lib/language/ic/term
 
 type StepMode { Deterministic(); NonDeterministic(); }
 
-type PortIterator {
-  Symmetric(it: (Int, Port, Port) => Unit / { Rewrite, Inspect } at {io,global});
-  LeftBiased(it: (Int, Port) => Unit / { Rewrite, Inspect } at {io,global});
-  RightBiased(it: (Int, Port) => Unit / { Rewrite, Inspect } at {io,global});
-}
-
-type RewriteRule {
-  Many(many: PortIterator);
-  ManyFinally(many: PortIterator, finally: PortIterator);
-}
-
 interface Rewrite {
   def annihilate(ctor: Constructor): Unit
-  def constructor(pp: Port, aux: List[Port], kind: Kind): Unit
-  def substitute(from: Port, to: Port): Unit
+  def construct(ctor: Constructor): Unit
+  def substitute(from: SuperPort, to: SuperPort): Unit
 }
-
-record PortRule(index: Int, polarizer: Polarity => Polarity at {})
-record Arity(left: Int, right: Int)
-record Rule(left: Kind, right: Kind, rewrites: (Int, Int) => List[RewriteRule] at {})
-
-interface Inspect {
-  def left(idx: Int): Port
-  def right(idx: Int): Port
-}
-
-val icRules = [
-  // f-(a1-, ..., an-, k+) <> f+(x1+, ..., xn+, b-) ~> [a1-/x1-]...[an-/xn-][b-/k-]
-  // beta-reduction in LC: APP-LAM
-  Rule(LightTriangle(), LightTriangle(), box { (n, m) => [
-    ManyFinally(Symmetric(box { (i, ai, xj) =>
-      // assert(n == m) // for LC: every argument matches one variable
-      do substitute(ai, xj.negate)
-    }), Symmetric(box { (i, k, b) =>
-      do substitute(b, k.negate)
-    }))
-  ] }),
-
-  // k-(o1+, ..., on+) <> k+(i1-, ..., im-) ~> [i1-/o1-]...[in-/on-]
-  // duplicator annihilation: DUP-SUP (TODO: no DUP commutation except with arity=1 for now)
-  Rule(DarkTriangle(), DarkTriangle(), box { (n, m) =>
-    if (n == 0) [
-      Many(RightBiased(box { (j, oij) =>
-        do constructor(oij, [], DarkTriangle())
-      }))
-    ] else if (n == 1) [
-      Many(LeftBiased(box { (_, o) =>
-        val os = m.list::build { i => do right(i) }
-        do constructor(o, os, DarkTriangle())
-      })),
-    ] else if (m == 0) [
-      Many(LeftBiased(box { (j, oij) =>
-        do constructor(oij, [], DarkTriangle())
-      }))
-    ] else if (m == 1) [
-      Many(RightBiased(box { (_, o) =>
-        val os = n.list::build { i => do left(i) }
-        do constructor(o, os, DarkTriangle())
-      })),
-    ] else [
-      Many(Symmetric(box { (i, oi, ij) =>
-        // assert(n == m)
-        do substitute(ij, oi.negate)
-      }))
-    ]
-  }),
-
-  // f-(a1-, ..., an-, k+) <> f+(f1-, ..., fm-) ~> a1-(a11+, ..., a1m+), ..., an-(an1+, ..., anm+), k+(k1-, ..., km-), // DUPs, SUP
-  //                                               f1-(a11-, ..., an1-, k1+), ..., fm-(a1m-, ..., anm-, km+)           // APPs
-  // application commutation with superposer in LC: APP-SUP
-  Rule(LightTriangle(), DarkTriangle(), box { (n, m) =>
-    if (m == 0) [
-      Many(LeftBiased(box { (i, afi) =>
-        do constructor(afi, [], DarkTriangle())
-      }))
-    ] else if (m == 1) [
-      Many(RightBiased(box { (_, o) =>
-        val os = n.list::build { i => do left(i) }
-        do constructor(o, os, LightTriangle())
-      })),
-    ] else [
-      ManyFinally(LeftBiased(box { (i, ai) =>
-        val ais = m.list::build { i => Port("${ai.name}_${i.show}", Pos()) }.reverse
-        do constructor(ai, ais, DarkTriangle()) // DUP
-      }), Symmetric(box { (i, k, f) =>
-        val ks = m.list::build { i => Port("${k.name}_${i.show}", Neg()) }.reverse
-        do constructor(k, ks, DarkTriangle()) // SUP
-      })),
-      Many(RightBiased(box { (i, fj) => if (i <= m) {
-        val k = do left(n - 1)
-        val ki = Port("${k.name}_${i.show}", Pos())
-        val ais = (n - 1).list::build { j => Port("${do left(j).name}_${i.show}", Neg()) }
-        do constructor(fj, ais.append(singleton(ki)), LightTriangle()) // APP
-      }}))
-    ]
-  }),
-
-  // k-(k1+, ..., km+) <> k+(x1+, ..., xn+, b-) ~> b-(b1+, ..., bm+), x1+(x11-, ..., x1m-), ..., xn+(xn1-, ..., xnm-), // DUP, SUPs
-  //                                               k1+(x11+, ..., xn1+, b1-), ..., km+(x1m+, ..., xnm+, bm-)           // LAMs
-  // lambda commutation duplicator in LC: DUP-LAM
-  Rule(DarkTriangle(), LightTriangle(), box { (m, n) => 
-    if (m == 0) [
-      Many(RightBiased(box { (i, xbi) =>
-        do constructor(xbi, [], DarkTriangle())
-      }))
-    ] else if (m == 1) [
-      Many(LeftBiased(box { (_, o) =>
-        val os = n.list::build { i => do right(i) }
-        do constructor(o, os, LightTriangle())
-      })),
-    ] else [
-      ManyFinally(RightBiased(box { (i, xi) =>
-        val xis = m.list::build { i => Port("${xi.name}_${i.show}", Neg()) }.reverse
-        do constructor(xi, xis, DarkTriangle()) // DUP
-      }), Symmetric(box { (i, k, b) =>
-        val bs = m.list::build { i => Port("${b.name}_${i.show}", Pos()) }.reverse
-        do constructor(b, bs, DarkTriangle()) // SUP
-      })),
-      Many(LeftBiased(box { (i, ki) => if (i <= m) {
-        val b = do right(n - 1)
-        val bi = Port("${b.name}_${i.show}", Neg())
-        val xis = (n - 1).list::build { j => Port("${do right(j).name}_${i.show}", Pos()) }
-        do constructor(ki, xis.append(singleton(bi)), LightTriangle())
-      }}))
-    ]
-  }),
-]
 
 def redexes(program: Program): Unit / emit[Redex] =
   with val ctorA = for { program() }
   with val ctorB = for { program() }
-  if (ctorA.pp.pol is Neg() and ctorB.pp.pol is Pos())
+  if (ctorA.term::pp is Left(Neg(_)) and ctorB.term::pp is Right(Pos(_)))
     if (ctorA.pp.name == ctorB.pp.name)
       do emit(Redex(ctorA, ctorB))
 
-def inspector[A](left: List[Port], right: List[Port]) { prog: () => A / Inspect } =
-  with on[OutOfBounds].panic() // malformed rules.. idc
-  try prog()
-  with Inspect {
-    def left(idx)  = resume(left.get(idx))
-    def right(idx) = resume(right.get(idx))
-  }
-
-// TODO: should be { Rewrite, emit[Redex] } in the future
-def interact(redex: Redex, rule: Rule): Bool / Rewrite =
-  with inspector(redex.left.aux, redex.right.aux)
-  // TODO: additional checks may include (non-)matching labels (e.g. required for oracle)
-  if (rule.left == redex.left.kind && rule.right == redex.right.kind) {
-    val rewrites = (rule.rewrites)(redex.left.arity, redex.right.arity)
-    rewrites.foreach {
-      case Many(many) => many match {
-        case Symmetric(it)   => zip(redex.left.aux, redex.right.aux).foreachIndex { (i, p) => it(i, p.first, p.second) }
-        case LeftBiased(it)  => redex.left.aux.foreachIndex { (i, l) => it(i, l) }
-        case RightBiased(it) => redex.right.aux.foreachIndex { (i, r) => it(i, r) }
-      }
-      case ManyFinally(many, finally) => {
-        with on[MissingValue].ignore()
-        def left_() = redex.left.aux.init
-        def right_() = redex.right.aux.init
-        many match {
-          case Symmetric(it)   => zip(left_(), right_()).foreachIndex { (i, p) => it(i, p.first, p.second) }
-          case LeftBiased(it)  => left_().foreachIndex { (i, l) => it(i, l) }
-          case RightBiased(it) => right_().foreachIndex { (i, r) => it(i, r) }
-        }
-        def leftLast() = redex.left.aux.last
-        def rightLast() = redex.right.aux.last
-        finally match { // TODO: should the index here be the max arity?
-          case Symmetric(it)   => it(0, leftLast(), rightLast())
-          case LeftBiased(it)  => it(0, leftLast())
-          case RightBiased(it) => it(0, rightLast())
-        }
-      }
-    }
-
-    do annihilate(redex.left)
-    do annihilate(redex.right)
-    true
-  } else false
-
-def apply(port: Port, substitutions: Ref[Map[Port, Port]]): Port =
+def apply(port: SuperPort, substitutions: Ref[Map[SuperPort, SuperPort]]): SuperPort =
   if (substitutions.get.contains(port)) {
     val newPort = substitutions.get.getOrElse(port) { panic("wtf") }
     substitutions.map { m => m.delete(port) }
@@ -194,21 +28,56 @@ def apply(port: Port, substitutions: Ref[Map[Port, Port]]): Port =
   } else port
 
 /// applies one-shot substitutions on constructor
-def apply(ctor: Constructor, substitutions: Ref[Map[Port, Port]]): Constructor = {
-  val pp = ctor.pp.apply(substitutions)
-  val aux = ctor.aux.map { port => port.apply(substitutions) }
-  Constructor(pp, aux, ctor.kind)
+def apply(ctor: Constructor, substitutions: Ref[Map[SuperPort, SuperPort]]): Constructor =
+  ctor.map { p => p.apply(substitutions).name }
+
+def interact(redex: Redex): Unit / Rewrite = redex match {
+  // @(f-, a-, k+) <> λ(x+, b-, f+) ~> [a-/x-][b-/k-]
+  // beta-reduction: APP-LAM
+  case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Abstractor(Pos(x), Neg(b), Pos(f2))) and f1 == f2 => {
+    do substitute(Neg(a).super, Neg(x).super)
+    do substitute(Neg(b).super, Neg(k).super)
+  }
+
+  // δ(k-, k1+, ..., kn+) <> λ(x+, b-, k+)  ~> 
+  // duplicator annihilation: LAM-DUP
+  case Redex(Duplicator(Neg(k1), ks, l), Abstractor(Pos(x), Neg(b), Pos(k2))) and k1 == k2 => {
+    with on[OutOfBounds].panic() // can not happen
+    val n = ks.size
+    val xs = n.list::build { i => "${x}_${i.show}" }
+    val bs = n.list::build { i => "${b}_${i.show}" }
+    do construct(Superposer(Pos(x), xs.map { xi => Neg(xi) }, l))
+    do construct(Duplicator(Neg(b), bs.map { bi => Pos(bi) }, l))
+    0.each(n) { i =>
+      do construct(Abstractor(Pos(xs.get(i)), Neg(bs.get(i)), ks.get(i)))
+    }
+  }
+
+  // δ(k-, o1+, ..., on+) <> σ(k+, i1-, ..., im-) ~> [i1-/o1-]...[in-/on-]
+  // duplicator annihilation: DUP-SUP
+  case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 and l1 != l2 and out.size == ins.size => {
+    list::zip(out, ins).foreach { case (o, i) =>
+      do substitute(i.super, o.negate.super)
+    }
+  }
+  
+  case _ => {
+    inspect(redex)
+    panic("invalid redex")
+  }
 }
 
 def step_(program: Program, redex: Redex): Unit / emit[Constructor] = {
   val annihilated = ref[Set[Constructor]](emptyGeneric())
-  val substitutions = ref[Map[Port, Port]](emptyGeneric())
+  val substitutions = ref[Map[SuperPort, SuperPort]](emptyGeneric())
 
-  try icRules.foreach { (rule) {label} =>
-    if (redex.interact(rule)) label.break()
+  try {
+    redex.interact()
+    do annihilate(redex.left)
+    do annihilate(redex.right)
   } with Rewrite {
     def annihilate(ctor) = resume(annihilated.map { s => s.insert(ctor) })
-    def constructor(pp, aux, kind) = resume(do emit(Constructor(pp, aux, kind)))
+    def construct(ctor) = resume(do emit(ctor))
     def substitute(from, to) = resume(substitutions.map { m => m.put(to, from) })
   }
 

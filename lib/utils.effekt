@@ -2,6 +2,13 @@
 
 import test
 
+type Either[A, B] { Left(a: A); Right(b: B); }
+
+def collapse[A, B, R](port: Either[A, B]) { left: A => R } { right: B => R }: R = port match {
+  case Left(a)  => left(a)
+  case Right(b) => right(b)
+}
+
 // println without the ln: only for jsNode, of course
 extern def print(s: String) at io: Unit =
   jsNode "process.stdout.write(${s})"

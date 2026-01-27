@@ -1,5 +1,6 @@
 import map
 
+import lib/utils
 import lib/ui/geometry
 import lib/ui/vector
 import lib/language/ic/term
@@ -14,11 +15,12 @@ def net!(): Unit / { read[Constructor], NetStream } = {
   var ids: Label = 0
   var map: Map[String, Label] = emptyGeneric()
 
-  def uniqueMatch(port: Port) = {
+  def uniqueMatch(port: SuperPort) = {
     map.get(port.name) match {
       case Some(id) =>
-        if (port.pol is Pos()) do emit(Wire(id + 1, id))
-        if (port.pol is Neg()) do emit(Wire(id, id + 1))
+        port.collapse {
+          _ => do emit(Wire(id, id + 1)) } {
+            _ => do emit(Wire(id + 1, id)) }
         map = map.delete(port.name)
         id + 1
       case None() =>

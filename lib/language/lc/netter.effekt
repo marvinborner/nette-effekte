@@ -7,9 +7,8 @@ import lib/net/net
 import lib/language/lc/term
 import lib/language/ic/term
 
-type Label = String
-record Context(out: Label, bindings: Map[String, List[Port]])
-effect port(prefix: String): Label
+record Context(out: Port, bindings: Map[String, List[Port]])
+effect port(prefix: String): Port
 
 def plumbing { prog: => Unit / port } = {
   var i = 0
@@ -25,59 +24,31 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
   with loop
 
   val term = do read[Term]()
-  // println("term: '${term.show}'")
-
-  def bind(bindings: Map[String, List[Port]], x: String): Label = {
-    with on[MissingValue].panic() // can not happen
-    val bound: List[Port] = bindings.getOrElse(x) { Nil() } // nil is the affine-erase case
-
-    val duplicity = bound.size
-    duplicity match {
-      case 0 => 
-        val pk = do port(x ++ "Era")
-        do emit(Constructor(Port(pk, Neg()), [], DarkTriangle()))
-        pk
-      case 1 => // without our semantics: `bound.head.name`
-        val pk = do port(x ++ "Dup")
-        do emit(Constructor(Port(pk, Neg()), bound, DarkTriangle()))
-        pk
-      case n => {
-        // binary duplication spine (TODO: tree or just `do emit(Constructor(Port(pk, Neg()), bound, DarkTriangle()))`)
-        var left = bound.head.name
-        var pp = ""
-        bound.tail.foreach { bind =>
-          pp = do port(x ++ "Dup")
-          do emit(Constructor(Port(pp, Neg()), [Port(left, Pos()), bind], DarkTriangle()))
-          left = pp
-        }
-        left
-      }
-    }
-  }
-
   val context = try term.cata
-  with TermF[Context] {
-    def sym(x) = {
+  with TermF[Int => Context / { port, emit[Constructor] } at {io}] {
+    def sym(x) = resume(box { _ =>
       val px = do port(x ++ "Sym")
-      resume(Context(px, singletonGeneric(x, [Port(px, Pos())])))
-    }
+      Context(px, singletonGeneric(x, [px]))
+    })
 
-    def abs(x, b) = {
-      val Context(pb, bb) = b
+    def abs(x, b) = resume(box { label =>
+      val Context(pb, bb) = b(label)
       val pk = do port("kAbs")
-      val px = bb.bind(x)
-      do emit(Constructor(Port(pk, Pos()), [Port(px, Pos()), Port(pb, Neg())], LightTriangle()))
-      resume(Context(pk, bb.delete(x)))
-    }
+      val bound: List[Port] = bb.getOrElse(x) { Nil() }
+      val px = do port(x ++ "Dup")
+      do emit(Duplicator(Neg(px), bound.map { bind => Pos(bind) }, label))
+      do emit(Abstractor(Pos(px), Neg(pb), Pos(pk)))
+      Context(pk, bb.delete(x))
+    })
 
-    def app(f, a) = {
-      val Context(pf, bf) = f
-      val Context(pa, ba) = a
+    def app(f, a) = resume(box { label =>
+      val Context(pf, bf) = f(label)
+      val Context(pa, ba) = a(label + 1)
       val pk = do port("kApp")
-      do emit(Constructor(Port(pf, Neg()), [Port(pa, Neg()), Port(pk, Pos())], LightTriangle()))
-      resume(Context(pk, bf.union(ba, box { (a, b) => a.genericCompare(b) }) { (k, a, b) => a.append(b) }))
-    }
-  }
+      do emit(Applicator(Neg(pf), Neg(pa), Pos(pk)))
+      Context(pk, bf.union(ba, box { (a, b) => a.genericCompare(b) }) { (k, a, b) => a.append(b) })
+    })
+  }(0)
 
   if (context.bindings.size > 0)
     wrongFormat("term is open: " ++ context.bindings.keys.join(", "))

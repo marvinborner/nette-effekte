@@ -1,37 +1,96 @@
+import lib/utils
 import lib/net/net
 
-type Polarity { Pos(); Neg() }
+type Port = String
+record Neg(name: Port)
+record Pos(name: Port)
+type SuperPort = Either[Neg, Pos]
 
-record Port(name: String, pol: Polarity)
+def super(port: Neg): SuperPort = Left(port)
+def super(port: Pos): SuperPort = Right(port)
 
-def map(port: Port) { f: Polarity => Polarity }: Port = port match {
-  case Port(name, pol) => Port(name, pol.f)
+def negate(port: Neg): Pos = Pos(port.name)
+def negate(port: Pos): Neg = Neg(port.name)
+
+def name(port: SuperPort) = port match {
+  case Left(p)  => p.name
+  case Right(p) => p.name
 }
 
-def negate(pol: Polarity) = pol match { case Pos() => Neg(); case Neg() => Pos() }
-def negate(port: Port) = port.map { pol => pol.negate }
+def map(port: Pos) { f: Port => Port }: Pos = Pos(port.name.f)
+def map(port: Neg) { f: Port => Port }: Neg = Neg(port.name.f)
 
-record Constructor(pp: Port, aux: List[Port], kind: Kind)
+// def negate(pol: Polarity) = pol match { case Pos() => Neg(); case Neg() => Pos() }
+// def negate(port: Port) = port.map { pol => pol.negate }
+
+type Constructor {
+  Abstractor(x: Pos, b: Neg, k: Pos);
+  Applicator(f: Neg, a: Neg, k: Pos);
+  Duplicator(o: Neg, ins: List[Pos], label: Int);
+  Superposer(i: Pos, out: List[Neg], label: Int);
+}
+// interface ConstructorF[A] {
+  // def zeta(pp: Port, aux: List[Port]): A
+  // def delta(pp: Port, aux: List[Port], label: Int): A
+// }
+
 type Program = => Unit / emit[Constructor] at {}
-
 def empty(): Program = box {}
 
 record Redex(left: Constructor, right: Constructor) // pp: (-, +)
 type RedexBag = => Unit / emit[Redex] at {}
 
-def show(pol: Polarity) = pol match {
-  case Pos() => "+"
-  case Neg() => "-"
+def pp(ctor: Constructor): SuperPort = ctor match {
+  case Abstractor(x, b, k)       => k.super
+  case Applicator(f, a, k)       => f.super
+  case Duplicator(o, ins, label) => o.super
+  case Superposer(i, out, label) => i.super
 }
 
-def show(port: Port) = port.name ++ port.pol.show()
+def aux(ctor: Constructor): List[SuperPort] = ctor match {
+  case Abstractor(x, b, k)       => [x.super, b.super]
+  case Applicator(f, a, k)       => [a.super, k.super]
+  case Duplicator(o, ins, label) => ins.map { i => i.super }
+  case Superposer(i, out, label) => out.map { o => o.super }
+}
+
+def map(ctor: Constructor) { func: SuperPort => Port }: Constructor = ctor match {
+  case Abstractor(x, b, k)       => Abstractor(Pos(x.super.func), Neg(b.super.func), Pos(k.super.func))
+  case Applicator(f, a, k)       => Applicator(Neg(f.super.func), Neg(a.super.func), Pos(k.super.func))
+  case Duplicator(i, out, label) => Duplicator(Neg(i.super.func), out.map { s => Pos(s.super.func) }, label)
+  case Superposer(o, ins, label) => Superposer(Pos(o.super.func), ins.map { s => Neg(s.super.func) }, label)
+}
+
+// def map(ctor: Constructor) { func: Port => Port }: Constructor = ctor match {
+//   case Abstractor(x, b, k)       => Abstractor(x.map { p => p.func }, b.map { p => p.func }, k.map { p => p.func })
+//   case Applicator(f, a, k)       => Applicator(f.map { p => p.func }, a.map { p => p.func }, k.map { p => p.func })
+//   case Duplicator(o, ins, label) => Duplicator(o.map { p => p.func }, ins.map { s => s.map { p => p.func }}, label)
+//   case Superposer(i, out, label) => Superposer(i.map { p => p.func }, out.map { s => s.map { p => p.func }}, label)
+// }
+
+def kind(ctor: Constructor): Kind = ctor match {
+  case Abstractor(x, b, k)       => LightTriangle()
+  case Applicator(f, a, k)       => LightTriangle()
+  case Duplicator(o, ins, label) => DarkTriangle()
+  case Superposer(i, out, label) => DarkTriangle()
+}
+
+// def show(pol: Polarity) = pol match {
+//   case Pos() => "+"
+//   case Neg() => "-"
+// }
+
+def show(port: Pos) = port.name ++ "+"
+def show(port: Neg) = port.name ++ "-"
 
 def show(ctor: Constructor) = {
-  val pp = ctor.pp.show()
-  val aux = ctor.aux.map { p => p.show() }.join(", ")
-  ctor.kind match {
-    case LightTriangle() => "${pp}(${aux})"
-    case DarkTriangle()  => "${pp}[${aux}]"
+  def pretty(many: List[Pos]) = many.map { p => p.show() }.join(", ")
+  def pretty(many: List[Neg]) = many.map { p => p.show() }.join(", ")
+  ctor match {
+    case Abstractor(x, b, k)       => "λ(${x.show}, ${b.show}, ${k.show})"
+    case Applicator(f, a, k)       => "@(${f.show}, ${a.show}, ${k.show})"
+    case Duplicator(o, ins, label) => "δ(${o.show}, ${ins.pretty})(${label.show})"
+    case Superposer(i, out, label) => "σ(${i.show}, ${out.pretty})(${label.show})"
   }
 }
 

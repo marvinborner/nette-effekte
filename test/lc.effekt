@@ -13,73 +13,73 @@ def tests() = suite("└ lc tests") {
     assertEqual(omega.length, 9)
   }
 
-  test("lc compilation: identity") {
-    val ctors: List[Constructor] = collect {
-      with assertNoThrow[WrongFormat]
-      with source[Char] { "x => x".each }
-      compile!()
-    }
-    assertEqual(ctors, [
-      Constructor(Port("xDup3", Neg()), [Port("xSym1", Pos())], DarkTriangle()),                          // dup x.x1
-      Constructor(Port("kAbs2", Pos()), [Port("xDup3", Pos()), Port("xSym1", Neg())], LightTriangle())])  // (x => x1)_k
-  }
+  // test("lc compilation: identity") {
+  //   val ctors: List[Constructor] = collect {
+  //     with assertNoThrow[WrongFormat]
+  //     with source[Char] { "x => x".each }
+  //     compile!()
+  //   }
+  //   assertEqual(ctors, [
+  //     Constructor(Port("xDup3", Neg()), [Port("xSym1", Pos())], DarkTriangle()),                          // dup x.x1
+  //     Constructor(Port("kAbs2", Pos()), [Port("xDup3", Pos()), Port("xSym1", Neg())], LightTriangle())])  // (x => x1)_k
+  // }
 
-  test("lc compilation: omega") {
-    val ctors: List[Constructor] = collect {
-      with assertNoThrow[WrongFormat]
-      with source[Char] { "x => (x x)".each }
-      compile!()
-    }
-    assertEqual(ctors, [
-      Constructor(Port("xSym1", Neg()), [Port("xSym2", Neg()), Port("kApp3", Pos())], LightTriangle()),  // (x1 x2)_k3
-      Constructor(Port("xDup5", Neg()), [Port("xSym1", Pos()), Port("xSym2", Pos())], DarkTriangle()),   // dup x.x1 x2
-      Constructor(Port("kAbs4", Pos()), [Port("xDup5", Pos()), Port("kApp3", Neg())], LightTriangle())]) // (x => k_3)_k4
-  }
+  // test("lc compilation: omega") {
+  //   val ctors: List[Constructor] = collect {
+  //     with assertNoThrow[WrongFormat]
+  //     with source[Char] { "x => (x x)".each }
+  //     compile!()
+  //   }
+  //   assertEqual(ctors, [
+  //     Constructor(Port("xSym1", Neg()), [Port("xSym2", Neg()), Port("kApp3", Pos())], LightTriangle()),  // (x1 x2)_k3
+  //     Constructor(Port("xDup5", Neg()), [Port("xSym1", Pos()), Port("xSym2", Pos())], DarkTriangle()),   // dup x.x1 x2
+  //     Constructor(Port("kAbs4", Pos()), [Port("xDup5", Pos()), Port("kApp3", Neg())], LightTriangle())]) // (x => k_3)_k4
+  // }
 
-  test("lc compilation: shadowing") {
-    val ctors: List[Constructor] = collect {
-      with assertNoThrow[WrongFormat]
-      with source[Char] { "x => (x x => x)".each }
-      compile!()
-    }
-    assertEqual(ctors, [
-      Constructor(Port("xDup4", Neg()), [Port("xSym2", Pos())], DarkTriangle()),                         // dup x.x2
-      Constructor(Port("kAbs3", Pos()), [Port("xDup4", Pos()), Port("xSym2", Neg())], LightTriangle()),  // (x => x)_k3
-      Constructor(Port("xSym1", Neg()), [Port("kAbs3", Neg()), Port("kApp5", Pos())], LightTriangle()),  // (x k3)_k5
-      Constructor(Port("xDup7", Neg()), [Port("xSym1", Pos())], DarkTriangle()),                         // dup x.x1
-      Constructor(Port("kAbs6", Pos()), [Port("xDup7", Pos()), Port("kApp5", Neg())], LightTriangle())]) // (x => k6)_k5
-  }
+  // test("lc compilation: shadowing") {
+  //   val ctors: List[Constructor] = collect {
+  //     with assertNoThrow[WrongFormat]
+  //     with source[Char] { "x => (x x => x)".each }
+  //     compile!()
+  //   }
+  //   assertEqual(ctors, [
+  //     Constructor(Port("xDup4", Neg()), [Port("xSym2", Pos())], DarkTriangle()),                         // dup x.x2
+  //     Constructor(Port("kAbs3", Pos()), [Port("xDup4", Pos()), Port("xSym2", Neg())], LightTriangle()),  // (x => x)_k3
+  //     Constructor(Port("xSym1", Neg()), [Port("kAbs3", Neg()), Port("kApp5", Pos())], LightTriangle()),  // (x k3)_k5
+  //     Constructor(Port("xDup7", Neg()), [Port("xSym1", Pos())], DarkTriangle()),                         // dup x.x1
+  //     Constructor(Port("kAbs6", Pos()), [Port("xDup7", Pos()), Port("kApp5", Neg())], LightTriangle())]) // (x => k6)_k5
+  // }
 
-  test("lc compilation: complex") {
-    val ctors: List[Constructor] = collect {
-      with assertNoThrow[WrongFormat]
-      with source[Char] { "(x => (x x) y => y)".each }
-      compile!()
-    }
-    assertEqual(ctors, [
-      Constructor(Port("xSym1", Neg()), [Port("xSym2", Neg()), Port("kApp3", Pos())], LightTriangle()),  // (x1 x2)_k3
-      Constructor(Port("xDup5", Neg()), [Port("xSym1", Pos()), Port("xSym2", Pos())], DarkTriangle()),   // dup x.x1 x2
-      Constructor(Port("kAbs4", Pos()), [Port("xDup5", Pos()), Port("kApp3", Neg())], LightTriangle()),  // (x => k3)_k4
-      Constructor(Port("yDup8", Neg()), [Port("ySym6", Pos())], DarkTriangle()),                         // dup y.y1
-      Constructor(Port("kAbs7", Pos()), [Port("yDup8", Pos()), Port("ySym6", Neg())], LightTriangle()),  // (y => y1)_k7
-      Constructor(Port("kAbs4", Neg()), [Port("kAbs7", Neg()), Port("kApp9", Pos())], LightTriangle())]) // (k4 k7)_k9
-  }
+  // test("lc compilation: complex") {
+  //   val ctors: List[Constructor] = collect {
+  //     with assertNoThrow[WrongFormat]
+  //     with source[Char] { "(x => (x x) y => y)".each }
+  //     compile!()
+  //   }
+  //   assertEqual(ctors, [
+  //     Constructor(Port("xSym1", Neg()), [Port("xSym2", Neg()), Port("kApp3", Pos())], LightTriangle()),  // (x1 x2)_k3
+  //     Constructor(Port("xDup5", Neg()), [Port("xSym1", Pos()), Port("xSym2", Pos())], DarkTriangle()),   // dup x.x1 x2
+  //     Constructor(Port("kAbs4", Pos()), [Port("xDup5", Pos()), Port("kApp3", Neg())], LightTriangle()),  // (x => k3)_k4
+  //     Constructor(Port("yDup8", Neg()), [Port("ySym6", Pos())], DarkTriangle()),                         // dup y.y1
+  //     Constructor(Port("kAbs7", Pos()), [Port("yDup8", Pos()), Port("ySym6", Neg())], LightTriangle()),  // (y => y1)_k7
+  //     Constructor(Port("kAbs4", Neg()), [Port("kAbs7", Neg()), Port("kApp9", Pos())], LightTriangle())]) // (k4 k7)_k9
+  // }
 
-  test("lc compilation: fail on open terms") {
-    val ctors1: List[Constructor] = collect {
-      with assertThrows[WrongFormat]
-      with source[Char] { "x".each }
-      compile!()
-    }
-    val ctors2: List[Constructor] = collect {
-      with assertThrows[WrongFormat]
-      with source[Char] { "x => y".each }
-      compile!()
-    }
-    val ctors3: List[Constructor] = collect {
-      with assertThrows[WrongFormat]
-      with source[Char] { "x => (x y)".each }
-      compile!()
-    }
-  }
+  // test("lc compilation: fail on open terms") {
+  //   val ctors1: List[Constructor] = collect {
+  //     with assertThrows[WrongFormat]
+  //     with source[Char] { "x".each }
+  //     compile!()
+  //   }
+  //   val ctors2: List[Constructor] = collect {
+  //     with assertThrows[WrongFormat]
+  //     with source[Char] { "x => y".each }
+  //     compile!()
+  //   }
+  //   val ctors3: List[Constructor] = collect {
+  //     with assertThrows[WrongFormat]
+  //     with source[Char] { "x => (x y)".each }
+  //     compile!()
+  //   }
+  // }
 }

@@ -3,36 +3,67 @@ import lib/language/ic/term
 import lib/language/lexer
 import lib/language/parser
 
-def parsePolarity(): Polarity / Parser = or {
-  punct("+")
-  Pos()
-} {
-  punct("-")
-  Neg()
+def parsePos(): Pos / Parser = {
+  val name = ident()
+  punct("+") 
+  Pos(name)
 }
 
-def parsePort(): Port / Parser = {
+def parseNeg(): Neg / Parser = {
   val name = ident()
-  val pol = parsePolarity()
-  Port(name, pol)
+  punct("-") 
+  Neg(name)
+}
+
+def parseAbstractor(): Constructor / Parser = {
+  punct("λ")
+  punct("(");
+  val x = parsePos()
+  val b = parseNeg()
+  val k = parsePos()
+  punct(")");
+  Abstractor(x, b, k)
+}
+
+def parseApplicator(): Constructor / Parser = {
+  punct("@")
+  punct("(");
+  val f = parseNeg()
+  val a = parseNeg()
+  val k = parsePos()
+  punct(")");
+  Applicator(f, a, k)
+}
+
+def parseDuplicator(): Constructor / Parser = {
+  punct("δ")
+  punct("(");
+  val i = parseNeg()
+  val out = many {
+    parsePos()
+  }
+  punct(")");
+  Duplicator(i, out, 0)
+}
+
+def parseSuperposer(): Constructor / Parser = {
+  punct("σ")
+  punct("(");
+  val o = parsePos()
+  val ins = many {
+    parseNeg()
+  }
+  punct(")");
+  Superposer(o, ins, 0)
 }
 
 def parseConstructor(): Constructor / Parser = {
-  val pp = parsePort()
-  val kind = or([
-    box { punct("("); LightTriangle() },
-    box { punct("["); DarkTriangle() },
+  or([
+    box { parseAbstractor() },
+    box { parseApplicator() },
+    box { parseDuplicator() },
+    box { parseSuperposer() },
   ])
-  val aux = many {
-    val port = parsePort()
-    opt { punct(",") }
-    port
-  }
-  kind match {
-    case LightTriangle() => punct(")")
-    case DarkTriangle() => punct("]")
-  }
-  Constructor(pp, aux, kind)
 }
 
 def parseProgram(): List[Constructor] / Parser = some { parseConstructor() }
