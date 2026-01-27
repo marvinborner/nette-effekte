@@ -109,9 +109,3 @@ signatures for simplicity):
     ui/canvas::applyTo(canvas, node) // apply canvas to HTML node
     -->
     ... // repeat from reduction/layout step
-
-## Rule DSL
-
-## UI Theory
-
-# test

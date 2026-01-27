@@ -86,6 +86,11 @@ Though at least the linear lambda calculus is supported.
 
 ## interaction calculus
 
+-   `a+(a-)` (cycle)
+-   `a+(b+, b-)` (lambda identity)
+-   `a+(b+, c-) a-[d-, e+] b-(a+, a-) c+(a+, a-) d+(a+, a-) e-(a+, a-)`
+    (unfolding)
+
 # things to note / bugs
 
 -   sometimes you have to resize the window first in order for the
