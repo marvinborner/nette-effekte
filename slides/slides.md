@@ -35,25 +35,6 @@ theme:
 
 <!-- column_layout: [5,1] -->
 
-<!-- column: 0 -->
-
-- `interaction combinators`: graph-based model of computation
-
-<!-- pause -->
-|
-- **web** interface (react-ish):
-    - **parse** calculus
-    - "**type-check**" etc.
-    - **compile** to interaction calculus
-    - **rule** stepper (by DSL)
-    - interactive **force-directed** rendering
-
-<!-- pause -->
-|
-- **tui** interface (_also_ react-ish):
-    - ... (same model)
-    - just **raw** IC output
-
 <!-- column: 1 -->
 
 ```
@@ -64,6 +45,27 @@ theme:
  │ ╰───╯ │ 
  ╰───────╯ 
 ```
+
+<!-- column: 0 -->
+
+- `interaction combinators`: graph-based model of computation
+
+<!-- pause -->
+<!-- new_line -->
+
+- **web** interface (react-ish):
+    - **parse** calculus
+    - "**type-check**" etc.
+    - **compile** to interaction calculus
+    - **rule** stepper (by DSL)
+    - interactive **force-directed** rendering
+
+<!-- pause -->
+<!-- new_line -->
+
+- **tui** interface (_also_ react-ish):
+    - ... (same model)
+    - just **raw** IC output
 
 <!-- end_slide -->
 
@@ -81,6 +83,7 @@ interface Model[C, O] {
   def render(): Unit / Redraw
   def stepReduction(): Unit / Redraw
   def stepAnimation(): Unit / Redraw
+  def normalize(): Unit / Redraw
   def nextMode(): Unit / Redraw
   def source(s: String): Unit / Redraw
   def onContext(op: O): Unit / Redraw
@@ -310,7 +313,7 @@ with TermF[Context] {
 # effects
 ## other
 
-- fresh ports
+- fresh ports/variables
 - exceptions
 - lexing/parsing
 - net introspection
@@ -318,13 +321,20 @@ with TermF[Context] {
 
 <!-- end_slide -->
 
-# wishlist
+# wishlist / challenges
 
 - records: `Agent(...) { .name = "foo" }`
 - less memory leaks (browser often OOM'd)
 - shorter compilation times
-- `print` in prelude
 - `or` patterns (no more duplication!)
+- `print` in prelude (+ `utils.effekt`)
+
+<!-- end_slide -->
+
+<!-- alignment: center -->
+<!-- jump_to_middle -->
+
+_demo_
 
 <!-- end_slide -->
 
@@ -334,19 +344,11 @@ with TermF[Context] {
 
 | **language**  | **loc** |
 |---------------|---------|
-| effekt        | 2300    |
-| js-web -O0    | 9500?   |
-| js-web -O3    | 8300?   |
-| js     -O3    | 6500    |
-
-libraries used: prelude, map, process, ref, regex, set, string, test, tty
-
-<!-- end_slide -->
-
-<!-- alignment: center -->
-<!-- jump_to_middle -->
-
-_demo_
+| effekt        | 2500    |
+| js-web  -O0   | 10600   |
+| js-web  -O3   | 9550    |
+| js-cli  -O3   | 6050    |
+| js-test -O3   | 7800    |
 
 <!-- end_slide -->
 
