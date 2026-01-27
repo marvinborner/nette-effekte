@@ -7,17 +7,6 @@ import lib/language/lc/term
 import lib/language/ic/term
 import lib/language/ic/ruler
 
-def normalize(program: Program, redexes: RedexBag): (Program, Int) = {
-  var count = 0
-  var state = (program, redexes)
-  with exhaustively((empty(), 0))
-  count = count + 1
-  state = returning::collect {
-    collect { state.first.step(state.second) } }
-  if (count > 100) do fail()
-  (state.first, count)
-}
-
 def tests() = suite("└ ruler tests") {
   test("normalization: identity application") {
     val program: Program = collect {
@@ -31,7 +20,7 @@ def tests() = suite("└ ruler tests") {
         Constructor(Port("kAbs2", Neg()), [Port("kAbs5", Neg()), Port("kApp7", Pos())], LightTriangle()),
         Constructor(Port("kAbs2", Pos()), [Port("xDup3", Pos()), Port("xSym1", Neg())], LightTriangle()))
     ])
-    val (normalized, steps) = normalize(program, redexes)
+    val (normalized, steps) = normalize(program, redexes, 100)
     assertEqual(steps, 2)
     assertEqual(list::collect[Constructor] { normalized() }, [
       Constructor(Port("xSym1", Pos()), [Port("xDup6", Pos()), Port("xSym4", Neg())], LightTriangle()),
@@ -45,7 +34,7 @@ def tests() = suite("└ ruler tests") {
       compile!()
     }
     val redexes = box { program.redexes() }
-    val (normalized, steps) = normalize(program, redexes)
+    val (normalized, steps) = normalize(program, redexes, 100)
     assertEqual(steps, 5)
     assertEqual(list::collect[Constructor] { normalized() }, [
       Constructor(Port("xSym2", Pos()), [Port("xDup8_1", Pos()), Port("xDup8_1", Neg())], LightTriangle())])
@@ -58,7 +47,7 @@ def tests() = suite("└ ruler tests") {
       compile!()
     }
     val redexes = box { program.redexes() }
-    val (normalized, steps) = normalize(program, redexes)
+    val (normalized, steps) = normalize(program, redexes, 100)
     assertEqual(steps, 8)
     assertEqual(list::collect[Constructor] { normalized() }, [
       Constructor(Port("xSym4", Pos()), [Port("xDup11_1", Pos()), Port("xDup11_1", Neg())], LightTriangle())])

@@ -88,9 +88,9 @@ def load(state: NetState) { prog: => Unit / emit[Constructor] }: NetState / Redr
   NetState(net, program, redexes, state.canvas)
 }
 
-def step(state: NetState): NetState / { Redraw, fail } = {
+def step(state: NetState) { stepper: (Program, RedexBag) => Unit / { emit[Constructor], emit[Redex] } }: NetState / { Redraw, fail } = {
   val (loaded, redexes) = returning::collect {
-    state.load { state.program.step(state.redexes) } }
+    state.load { state.program.stepper(state.redexes) } }
   NetState(loaded.net, loaded.program, redexes, loaded.canvas)
 }
 
@@ -101,6 +101,9 @@ def interactive[R] { prog: => R / NetModel[NetState, Canvas, CanvasOp] }: R =
     def context(net) = resume(net.canvas)
     def load(net) = resume { { prog } => net.load { prog } }
     def render(net) = resume { net.render }
-    def step(net) = resume { attempt { net.step } { => net } }
+    def step(net) = resume { attempt { net.step { (program, redexes) => program.step(NonDeterministic(), redexes) } } {
+      => net } } // else
+    def normalize(net) = resume { attempt { net.step { (program, redexes) => (program.normalize(redexes, 100).first)() } } {
+      => net } } // else
     def operation(net, op) = resume { net.operation(op) }
   }

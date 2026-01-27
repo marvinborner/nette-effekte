@@ -61,7 +61,7 @@ effekt --backend js app/main.effekt
 
 The TUI only supports lambda terms (see [THEORY](THEORY.txt) for the
 syntax). Enter a term and press enter to compile. Step reduction with an
-exclamation mark `!`. Exit with `Ctrl+c`.
+exclamation mark `!`. Normalize with `@`. Exit with `Ctrl+c`.
 
 ## tests
 
@@ -97,3 +97,19 @@ Though at least the linear lambda calculus is supported.
 -   non-binary duplication is not fully supported for now
 -   if you leave the site open for too long, your memory will eventually
     run out
+
+# resources
+
+Multiple external resources were used for this project. If code was
+taken from other projects, it's clearly stated as such either in a
+comment at the top of the file or above the respective code snippet.
+
+For one, the theory is influenced by the papers mentioned in my
+[resource
+collection](https://github.com/marvinborner/interaction-net-resources).
+The parsers and lexers are copied almost verbatim from the [compiler
+frontend casestudy](https://effekt-lang.org/docs/casestudies/frontend)
+in Effekt's documentation (MIT). Several formulas and ideas (see
+`net/layout`) are inspired by the Haskell
+[graph-rewriting](https://github.com/jrochel/graph-rewriting) library by
+Jan Rochel (MIT).

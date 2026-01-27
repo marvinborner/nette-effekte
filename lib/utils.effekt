@@ -15,6 +15,16 @@ def size[A] { s: => Unit / emit[A] }: Int = {
   size
 }
 
+def choose[A] { stream: () => Unit / emit[A] }: A / fail =
+  try {
+    def body(): A = { stream(); first { stream() } }
+    body()
+  }
+  with emit[A] { a =>
+    if (random() > 0.5) a
+    else resume(())
+  }
+
 def init[A](l: List[A]): List[A] / Exception[MissingValue] = l match {
   case Nil() => do raise(MissingValue(), "Trying to get the beginning of an empty list")
   case Cons(a, Nil()) => Nil()

@@ -78,11 +78,12 @@ button {
 
 .errors {
     display: flex;
+    color: var(--code-color);
+    background-color: var(--code-background-color);
     position: fixed;
     align-items: center;
     width: 100%;
     bottom: 0;
-    background-color: #cdf1e7; /* from effekt-lang.org */
     padding: 0 10px 0 10px;
 }
 

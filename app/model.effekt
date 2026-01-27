@@ -32,6 +32,7 @@ def modifyState[N] { f: N => N }: Unit / State[EvaluatorState[N]] =
 interface Model[C, O] {
   def render(): Unit / Redraw
   def stepReduction(): Unit / Redraw
+  def normalize(): Unit / Redraw
   def stepAnimation(): Unit / Redraw
   def nextMode(): Unit / Redraw
   def setSource(s: String): Unit / Redraw
@@ -116,6 +117,7 @@ def model[C, O, R, N] { prog: => R / Model[C, O] }: R / { State[EvaluatorState[N
   with Model[C, O] {
     def render()        = resume { modifyState { st => st.render } }
     def stepReduction() = resume { modifyState { net => do step(net) } }
+    def normalize()     = resume { modifyState { net => do normalize(net) } }
     def stepAnimation() = resume { modifyState { net => do render(net) } }
     def nextMode()      = resume { modifyState { st => st.nextMode } }
     def setSource(c)    = resume { modifyState { st => st.setSource(c) } }

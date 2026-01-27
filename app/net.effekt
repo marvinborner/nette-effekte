@@ -9,5 +9,6 @@ interface NetModel[N, C, O] {
   def load(net: N) { prog: => Unit / emit[Constructor] }: N / Redraw
   def render(net: N): N / Redraw
   def step(net: N): N / Redraw
+  def normalize(net: N): N / Redraw
   def operation(net: N, op: O): N / Redraw
 }

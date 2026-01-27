@@ -99,7 +99,7 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = {
 
   app match {
     case HtmlView(update, view) =>
-      val MS_TICK = 100 // tick every n ms
+      val MS_TICK = 80 // tick every n ms
 
       val dirtyTags = ref[Set[Tag]](emptyGeneric())
       val tickers = ref[List[=> Unit at {io, global}]](Nil())

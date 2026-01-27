@@ -26,10 +26,10 @@ def load(state: NetState) { prog: => Unit / emit[Constructor] }: NetState = {
   NetState(net, program, redexes, Terminal(program.show, redexes.stringify))
 }
 
-def step(state: NetState): NetState / { Redraw, fail } = {
+def step(state: NetState) { stepper: (Program, RedexBag) => Unit / { emit[Constructor], emit[Redex] } }: NetState / { Redraw, fail } = {
   do redrawFull()
   val (loaded, redexes) = returning::collect {
-    state.load { state.program.step(state.redexes) } }
+    state.load { state.program.stepper(state.redexes) } }
   NetState(loaded.net, loaded.program, redexes, Terminal(loaded.program.show, redexes.stringify))
 }
 
@@ -38,7 +38,10 @@ def cli[R] { prog: => R / NetModel[NetState, Terminal, Unit] }: R =
   with NetModel[NetState, Terminal, Unit] {
     def empty() = resume(empty())
     def load(net) = resume { { prog } => net.load { prog } }
-    def step(net) = resume { attempt { net.step } { => net } }
+    def step(net) = resume { attempt { net.step { (program, redexes) => program.step(NonDeterministic(), redexes) } } {
+      => net } } // else
+    def normalize(net) = resume { attempt { net.step { (program, redexes) => (program.normalize(redexes, 100).first)() } } {
+      => net } } // else
     def context(net) = resume(net.terminal)
 
     // not relevant for cli

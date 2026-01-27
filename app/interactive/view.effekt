@@ -31,6 +31,7 @@ def textarea[Ev](handler: List[HtmlHandler[Ev]], classes: List[String], text: Te
 type Event {
   Render();
   StepReduction();
+  Normalize();
   StepAnimation();
   NextMode();
   SetSource(s: String);
@@ -42,6 +43,7 @@ type Event {
 def dispatch(msg: Event): Unit / { Model[Canvas, CanvasOp], Redraw } = msg match {
   case Render()         => do render()
   case StepReduction()  => do stepReduction()
+  case Normalize()      => do normalize()
   case StepAnimation()  => do stepAnimation()
   case NextMode()       => do nextMode()
   case SetSource(s)     => do setSource(s)
@@ -57,6 +59,7 @@ def view(): Html[Event] / { Model[Canvas, CanvasOp], tag } = {
       button([ OnClick(NextMode()) ], [], [ text("Current Mode: " ++ show(do getMode())) ]),
       button([ OnClick(Render())], [], [ text("Render") ]),
       button([ OnClick(StepReduction()) ], [], [ text("Step") ]),
+      button([ OnClick(Normalize()) ], [], [ text("Normalize") ]),
     ]),
     div([ "split" ], [
       textarea([

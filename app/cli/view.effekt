@@ -28,6 +28,7 @@ def dropLast(text: TextStream): String =
 type Event {
   Render();
   StepReduction();
+  Normalize();
   AppendSource(ch: String); // js string
   UndoSource();
   Exit();
@@ -37,6 +38,7 @@ type Event {
 def dispatch(msg: Event): Unit / { Model[Terminal, Unit], Redraw } = msg match {
   case Render()         => do render()
   case StepReduction()  => do stepReduction()
+  case Normalize()      => do normalize()
   case AppendSource(ch) => do setSource(do getSource(MODE).append(ch))
   case UndoSource()     => do setSource(do getSource(MODE).dropLast)
   case Exit()           => exit(0)
@@ -47,6 +49,7 @@ def handle(key: String) = key match {
   case "\r"   => Render() // enter
   case "\n"   => Render()
   case "!"    => StepReduction()
+  case "@"    => Normalize()
   case "\u8"  => UndoSource() // backspace
   case "\u7f" => UndoSource()
   case "\u3"  => Exit() // Ctrl+c
@@ -72,7 +75,7 @@ def view(): Tui[Event] / { Model[Terminal, Unit], Formatted } = rows([
     string(do getErrors())
   ]),
   string(""),
-  string("Compiled IC".green ++ " (step via '!')".dim),
+  string("Compiled IC".green ++ " (step via '!', normalize via '@')".dim),
   string(do getContext().highlight)
 ])
 

@@ -5,6 +5,8 @@ import lib/utils
 import lib/net/net
 import lib/language/ic/term
 
+type StepMode { Deterministic(); NonDeterministic(); }
+
 type PortIterator {
   Symmetric(it: (Int, Port, Port) => Unit / { Rewrite, Inspect } at {io,global});
   LeftBiased(it: (Int, Port) => Unit / { Rewrite, Inspect } at {io,global});
@@ -216,10 +218,27 @@ def step_(program: Program, redex: Redex): Unit / emit[Constructor] = {
   }
 }
 
+def choose(mode: StepMode, redexes: RedexBag): Redex / fail = mode match {
+  case Deterministic()    => first[Redex] { redexes() }
+  case NonDeterministic() => choose { redexes() }
+}
+
 // TODO: emit new redexes directly during interactions (wires get reconnected, check if same port)
-def step(program: Program, redexes: RedexBag): Unit / { emit[Constructor], emit[Redex], fail } = {
-  val redex = first[Redex] { redexes() }
+def step(program: Program, mode: StepMode, redexes: RedexBag): Unit / { emit[Constructor], emit[Redex], fail } = {
+  val redex = choose(mode, redexes)
   val program: Program = collect { program.step_(redex) }
   program.redexes() // TODO: this could be an expensive call, we should not do it at every step.
   program()
+}
+
+def normalize(program: Program, redexes: RedexBag, max: Int): (Program, Int) = {
+  var count = 0
+  var state = (program, redexes)
+
+  with exhaustively((empty(), 0))
+  count = count + 1
+  state = returning::collect {
+    collect { state.first.step(Deterministic(), state.second) } }
+  if (count > max) do fail()
+  (state.first, count)
 }
