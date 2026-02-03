@@ -96,18 +96,17 @@ def tests() = suite("└ ruler tests") {
     ])
   }
 
-  // TODO: this works, but only without optimizations ("b_k_0 is not defined")
-  // test("normalization: erasing church") {
-  //   val program: Program = collect {
-  //     with assertNoThrow[WrongFormat]
-  //     with source[Char] { "(x=>y=>y s=>z=>(s (s (s z))))".each }
-  //     compile!()
-  //   }
-  //   val redexes = box { program.redexes() }
-  //   val (normalized, steps) = normalize(program, redexes, 20)
-  //   assertEqual(steps, 11)
-  //   assertEqual(list::collect[Constructor] { normalized() }, [
-  //     Abstractor(Pos("ySym1"), Neg("ySym1"), Pos("kAbs2"))
-  //   ])
-  // }
+  test("normalization: erasing church") {
+    val program: Program = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "(x=>y=>y s=>z=>(s (s (s z))))".each }
+      compile!()
+    }
+    val redexes = box { program.redexes() }
+    val (normalized, steps) = normalize(program, redexes, 20)
+    assertEqual(steps, 11)
+    assertEqual(list::collect[Constructor] { normalized() }, [
+      Abstractor(Pos("ySym1"), Neg("ySym1"), Pos("kAbs2"))
+    ])
+  }
 }
