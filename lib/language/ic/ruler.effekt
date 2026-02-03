@@ -54,11 +54,63 @@ def interact(redex: Redex): Unit / Rewrite = redex match {
     }
   }
 
+  // @(f-, a-, k+) <> σ(f+, f1-, ..., fn-) ~> σ(k+, k1-, ..., kn-), δ(a-, a1+, ..., an+),
+  //                                          @(f1-, a1-, k1+), ..., @(fn-, an-, kn+)
+  // application superposition: SUP-APP
+  case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Superposer(Pos(f2), fs, l)) and f1 == f2 => {
+    with on[OutOfBounds].panic() // can not happen
+    val n = fs.size
+    val ks = n.list::build { i => s"${k}_${i.show}" }
+    val as = n.list::build { i => s"${a}_${i.show}" }
+    do construct(Superposer(Pos(k), ks.map { ki => Neg(ki) }, l))
+    do construct(Duplicator(Neg(a), as.map { ai => Pos(ai) }, l))
+    0.each(n) { i =>
+      do construct(Applicator(fs.get(i), Neg(as.get(i)), Pos(ks.get(i))))
+    }
+  }
+
+  // unary duplicator-superposer annihilation (independent of level)
+  case Redex(Duplicator(Neg(k1), Cons(Pos(out), Nil()), l1), Superposer(Pos(k2), Cons(Neg(ins), Nil()), l2)) and k1 == k2 => {
+    do substitute(Pos(out).super, Pos(ins).super)
+  }
+
+  // unary duplicator annihilation (independent of level)
+  case Redex(Duplicator(Neg(k1), Cons(Pos(out), Nil()), l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 => {
+    do construct(Superposer(Pos(out), ins, l2))
+  }
+
+  // unary superposer annihilation (independent of level)
+  case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), Cons(Neg(ins), Nil()), l2)) and k1 == k2 => {
+    do construct(Duplicator(Neg(ins), out, l1))
+  }
+
   // δ(k-, o1+, ..., on+) <> σ(k+, i1-, ..., im-) ~> [i1-/o1-]...[in-/on-]
   // duplicator annihilation: DUP-SUP
-  case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 and l1 != l2 and out.size == ins.size => {
+  case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 and l1 == l2 and out.size == ins.size => {
     list::zip(out, ins).foreach { case (o, i) =>
       do substitute(i.super, o.negate.super)
+    }
+  }
+
+  // δ(k-, o1+, ..., on+) <> σ(k+, i1-, ..., im-) ~> δ(i1-, o11+, ..., o1n+), .m., δ(im-, om1+, ..., omn+),
+  //                                                 σ(o1+, o11-, ..., om1-), .n., σ(on+, o1n-, ..., omn-)
+  // duplicator commutation: DUP-SUP // TODO: label management?
+  case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 and l1 != l2 => {
+    with on[OutOfBounds].panic() // can not happen
+    val n = out.size
+    val m = ins.size
+    val it = if (n > m) out.map { p => p.name } else ins.map { p => p.name } // interconnection labels (optimally fresh)
+    0.each(m) { i => // duplicators
+      val outM = n.list::build { j =>
+        Pos(s"${it.get(i)}_${j.show}")
+      }
+      do construct(Duplicator(ins.get(i), outM, l1))
+    }
+    0.each(n) { i => // superposers
+      val insN = m.list::build { j =>
+        Neg(s"${it.get(j)}_${i.show}")
+      }
+      do construct(Superposer(out.get(i), insN, l2))
     }
   }
   

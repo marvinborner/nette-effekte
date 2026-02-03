@@ -13,16 +13,30 @@ def tests() = suite("└ lc tests") {
     assertEqual(omega.length, 9)
   }
 
-  // test("lc compilation: identity") {
-  //   val ctors: List[Constructor] = collect {
-  //     with assertNoThrow[WrongFormat]
-  //     with source[Char] { "x => x".each }
-  //     compile!()
-  //   }
-  //   assertEqual(ctors, [
-  //     Constructor(Port("xDup3", Neg()), [Port("xSym1", Pos())], DarkTriangle()),                          // dup x.x1
-  //     Constructor(Port("kAbs2", Pos()), [Port("xDup3", Pos()), Port("xSym1", Neg())], LightTriangle())])  // (x => x1)_k
-  // }
+  test("lc compilation: identity") {
+    val ctors: List[Constructor] = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "x => x".each }
+      compile!()
+    }
+    assertEqual(ctors, [
+      Duplicator(Neg("xDup3"), [Pos("xSym1")], 0),            // dup x.x1
+      Abstractor(Pos("xDup3"), Neg("xSym1"), Pos("kAbs2"))])  // (x => x1)_k
+  }
+
+  test("lc compilation: identity annihilation") {
+    val ctors: List[Constructor] = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "(x=>x y=>y)".each }
+      compile!()
+    }
+    assertEqual(ctors, [
+      Duplicator(Neg("xDup3"), [Pos("xSym1")], 0),            // dup x.x1
+      Abstractor(Pos("xDup3"), Neg("xSym1"), Pos("kAbs2")),   // (x => x1)_k
+      Duplicator(Neg("yDup6"), [Pos("ySym4")], 1),            // dup y.y1
+      Abstractor(Pos("yDup6"), Neg("ySym4"), Pos("kAbs5")),   // (y => y1)_k5
+      Applicator(Neg("kAbs2"), Neg("kAbs5"), Pos("kApp7"))])  // (k2 k5)_k7
+  }
 
   // test("lc compilation: omega") {
   //   val ctors: List[Constructor] = collect {

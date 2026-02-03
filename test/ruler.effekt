@@ -20,11 +20,11 @@ def tests() = suite("└ ruler tests") {
         Applicator(Neg("kAbs2"), Neg("kAbs5"), Pos("kApp7")),
         Abstractor(Pos("xDup3"), Neg("xSym1"), Pos("kAbs2")))
     ])
-    val (normalized, steps) = normalize(program, redexes, 100)
+    val (normalized, steps) = normalize(program, redexes, 10)
     assertEqual(steps, 3)
     assertEqual(list::collect[Constructor] { normalized() }, [
-      Duplicator(Neg("xDup6_0"), [Pos("xSym4_0")], 0),
-      Abstractor(Pos("xDup6_0"), Neg("xSym4_0"), Pos("xSym1"))
+      Duplicator(Neg("xSym4"), [Pos("xSym4_0")], 0),
+      Abstractor(Pos("xSym4"), Neg("xSym4_0"), Pos("xSym1"))
     ])
   }
 
@@ -35,9 +35,40 @@ def tests() = suite("└ ruler tests") {
       compile!()
     }
     val redexes = box { program.redexes() }
-    val (normalized, steps) = normalize(program, redexes, 100)
+    val (normalized, steps) = normalize(program, redexes, 10)
     assertEqual(steps, 5)
     assertEqual(list::collect[Constructor] { normalized() }, [
+      Abstractor(Pos("xDup8_1"), Neg("xDup8_1"), Pos("xSym2"))
+    ])
+  }
+
+  test("normalization: more complex identity annihilation") {
+    val program: Program = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "(x=>x x=>(x x) x=>x)".each }
+      compile!()
+    }
+    val redexes = box { program.redexes() }
+    val (normalized, steps) = normalize(program, redexes, 20)
+    assertEqual(steps, 10)
+    assertEqual(list::collect[Constructor] { normalized() }, [
+      Abstractor(Pos("xDup12_1_0"), Neg("xDup12_1_0"), Pos("kApp6_0"))
+    ])
+  }
+
+  test("normalization: multi-arity identity annihilation") {
+    val program: Program = collect {
+      with assertNoThrow[WrongFormat]
+      // with source[Char] { "(x=>x x=>(x x x x x x) x=>(x x) x=>x)".each } // TODO: is this supposed to work?
+      with source[Char] { "(x=>x x=>(x x x x x x) x=>x)".each }
+      compile!()
+    }
+    val redexes = box { program.redexes() }
+    val (normalized, steps) = normalize(program, redexes, 20)
+    assertEqual(steps, 9)
+    assertEqual(list::collect[Constructor] { normalized() }, [
+      Duplicator(Neg("xDup8_1_0"), [Pos("xSym6_1_0")], 1),
+      Abstractor(Pos("xDup8_1_0"), Neg("xSym6_1_0"), Pos("xSym2_0"))
     ])
   }
 
