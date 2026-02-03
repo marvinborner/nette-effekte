@@ -1,4 +1,5 @@
 import lib/language/ic/term
+import lib/language/ic/ruler
 import lib/net/net
 import lib/ui/dirty
 import lib/ui/vector
@@ -8,7 +9,7 @@ interface NetModel[N, C, O] {
   def context(net: N): C
   def load(net: N) { prog: => Unit / emit[Constructor] }: N / Redraw
   def render(net: N): N / Redraw
-  def step(net: N): N / Redraw
+  def step(net: N): N / { Redraw, fresh }
   def normalize(net: N): N / Redraw
   def operation(net: N, op: O): N / Redraw
 }

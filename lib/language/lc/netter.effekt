@@ -24,6 +24,26 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
   with loop
 
   val term = do read[Term]()
+
+  def bind(bindings: Map[String, List[Port]], label: Int, x: String): Port / { port, emit[Constructor] } = {
+    with on[MissingValue].panic() // can not happen
+    val bound: List[Port] = bindings.getOrElse(x) { Nil() } // nil is the affine-erase case
+
+    val duplicity = bound.size
+    duplicity match {
+      case 0 => 
+        val pk = do port(x ++ "Era")
+        do emit(Duplicator(Neg(pk), [], label))
+        pk
+      case 1 => bound.head
+      case n => {
+        val pk = do port(x ++ "Dup")
+        do emit(Duplicator(Neg(pk), bound.map { bind => Pos(bind) }, label))
+        pk
+      }
+    }
+  }
+
   val context = try term.cata
   with TermF[Int => Context / { port, emit[Constructor] } at {io}] {
     def sym(x) = resume(box { _ =>
@@ -34,9 +54,7 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
     def abs(x, b) = resume(box { label =>
       val Context(pb, bb) = b(label)
       val pk = do port("kAbs")
-      val bound: List[Port] = bb.getOrElse(x) { Nil() }
-      val px = do port(x ++ "Dup")
-      do emit(Duplicator(Neg(px), bound.map { bind => Pos(bind) }, label))
+      val px = bb.bind(label, x)
       do emit(Abstractor(Pos(px), Neg(pb), Pos(pk)))
       Context(pk, bb.delete(x))
     })

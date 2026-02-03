@@ -7,8 +7,15 @@ import lib/language/lc/term
 import lib/language/ic/term
 import lib/language/ic/ruler
 
+// normalize is non-deterministic
+def confluence[R] { test: => R }: R = {
+  0.each(10) { _ => test(); () }
+  test()
+}
+
 def tests() = suite("└ ruler tests") {
   test("normalization: identity application") {
+    with confluence
     val program: Program = collect {
       with assertNoThrow[WrongFormat]
       with source[Char] { "(x=>x x=>x)".each }
@@ -17,18 +24,18 @@ def tests() = suite("└ ruler tests") {
     val redexes = box { program.redexes() }
     assertEqual(list::collect[Redex] { redexes() }, [
       Redex(
-        Applicator(Neg("kAbs2"), Neg("kAbs5"), Pos("kApp7")),
-        Abstractor(Pos("xDup3"), Neg("xSym1"), Pos("kAbs2")))
+        Applicator(Neg("kAbs2"), Neg("kAbs4"), Pos("kApp5")),
+        Abstractor(Pos("xSym1"), Neg("xSym1"), Pos("kAbs2")))
     ])
     val (normalized, steps) = normalize(program, redexes, 10)
-    assertEqual(steps, 3)
+    assertEqual(steps, 1)
     assertEqual(list::collect[Constructor] { normalized() }, [
-      Duplicator(Neg("xSym4"), [Pos("xSym4_0")], 0),
-      Abstractor(Pos("xSym4"), Neg("xSym4_0"), Pos("xSym1"))
+      Abstractor(Pos("xSym3"), Neg("xSym3"), Pos("kAbs4"))
     ])
   }
 
   test("normalization: identity duplication") {
+    with confluence
     val program: Program = collect {
       with assertNoThrow[WrongFormat]
       with source[Char] { "(x=>(x x) x=>x)".each }
@@ -36,39 +43,56 @@ def tests() = suite("└ ruler tests") {
     }
     val redexes = box { program.redexes() }
     val (normalized, steps) = normalize(program, redexes, 10)
-    assertEqual(steps, 5)
+    assertEqual(steps, 4)
     assertEqual(list::collect[Constructor] { normalized() }, [
-      Abstractor(Pos("xDup8_1"), Neg("xDup8_1"), Pos("xSym2"))
+      Abstractor(Pos("xSym6_1_1"), Neg("xSym6_1_1"), Pos("xSym2"))
     ])
   }
 
   test("normalization: more complex identity annihilation") {
+    with confluence
     val program: Program = collect {
       with assertNoThrow[WrongFormat]
       with source[Char] { "(x=>x x=>(x x) x=>x)".each }
       compile!()
     }
     val redexes = box { program.redexes() }
-    val (normalized, steps) = normalize(program, redexes, 20)
-    assertEqual(steps, 10)
+    val (normalized, steps) = normalize(program, redexes, 10)
+    assertEqual(steps, 5)
     assertEqual(list::collect[Constructor] { normalized() }, [
-      Abstractor(Pos("xDup12_1_0"), Neg("xDup12_1_0"), Pos("kApp6_0"))
+      Abstractor(Pos("xSym9_1_1"), Neg("xSym9_1_1"), Pos("xSym4"))
     ])
   }
 
   test("normalization: multi-arity identity annihilation") {
+    with confluence
     val program: Program = collect {
       with assertNoThrow[WrongFormat]
-      // with source[Char] { "(x=>x x=>(x x x x x x) x=>(x x) x=>x)".each } // TODO: is this supposed to work?
-      with source[Char] { "(x=>x x=>(x x x x x x) x=>x)".each }
+      // TODO: is this supposed to work??
+      // with source[Char] { "(x=>x x=>(x x x x x x) x=>(x x) x=>x)".each }
+      with source[Char] { "(x=>(x x x x x x x x x) x=>x)".each }
       compile!()
     }
     val redexes = box { program.redexes() }
     val (normalized, steps) = normalize(program, redexes, 20)
-    assertEqual(steps, 9)
+    assertEqual(steps, 11)
     assertEqual(list::collect[Constructor] { normalized() }, [
-      Duplicator(Neg("xDup8_1_0"), [Pos("xSym6_1_0")], 1),
-      Abstractor(Pos("xDup8_1_0"), Neg("xSym6_1_0"), Pos("xSym2_0"))
+      Abstractor(Pos("xSym20_8_8"), Neg("xSym20_8_8"), Pos("xSym16"))
+    ])
+  }
+
+  test("normalization: church identity annihilation") {
+    with confluence
+    val program: Program = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "(s=>z=>(s (s (s (s (s z))))) x=>x)".each }
+      compile!()
+    }
+    val redexes = box { program.redexes() }
+    val (normalized, steps) = normalize(program, redexes, 20)
+    assertEqual(steps, 8)
+    assertEqual(list::collect[Constructor] { normalized() }, [
+      Abstractor(Pos("zSym6"), Neg("zSym6"), Pos("kAbs12"))
     ])
   }
 

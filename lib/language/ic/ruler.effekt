@@ -7,6 +7,17 @@ import lib/language/ic/term
 
 type StepMode { Deterministic(); NonDeterministic(); }
 
+effect fresh(): Int
+
+def freshener[R] { prog: => R / fresh }: R = {
+  var counter = 0
+  try prog()
+  with fresh {
+    counter = counter + 1
+    resume(counter - 1)
+  }
+}
+
 interface Rewrite {
   def annihilate(ctor: Constructor): Unit
   def construct(ctor: Constructor): Unit
@@ -31,7 +42,13 @@ def apply(port: SuperPort, substitutions: Ref[Map[SuperPort, SuperPort]]): Super
 def apply(ctor: Constructor, substitutions: Ref[Map[SuperPort, SuperPort]]): Constructor =
   ctor.map { p => p.apply(substitutions).name }
 
-def interact(redex: Redex): Unit / Rewrite = redex match {
+def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
+  // @(f-, a-, k+) <> λ(x+, x-, f+) ~> [a-/k-]
+  // beta-reduction: APP-LAM
+  case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Abstractor(Pos(x1), Neg(x2), Pos(f2))) and f1 == f2 and x1 == x2 => {
+    do substitute(Neg(a).super, Neg(k).super)
+  }
+
   // @(f-, a-, k+) <> λ(x+, b-, f+) ~> [a-/x-][b-/k-]
   // beta-reduction: APP-LAM
   case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Abstractor(Pos(x), Neg(b), Pos(f2))) and f1 == f2 => {
@@ -45,8 +62,8 @@ def interact(redex: Redex): Unit / Rewrite = redex match {
   case Redex(Duplicator(Neg(k1), ks, l), Abstractor(Pos(x), Neg(b), Pos(k2))) and k1 == k2 => {
     with on[OutOfBounds].panic() // can not happen
     val n = ks.size
-    val xs = n.list::build { i => s"${x}_${i.show}" }
-    val bs = n.list::build { i => s"${b}_${i.show}" }
+    val xs = n.list::build { i => s"${x}_${do fresh().show}_${i.show}" }
+    val bs = n.list::build { i => s"${b}_${do fresh().show}_${i.show}" }
     do construct(Superposer(Pos(x), xs.map { xi => Neg(xi) }, l))
     do construct(Duplicator(Neg(b), bs.map { bi => Pos(bi) }, l))
     0.each(n) { i =>
@@ -60,8 +77,8 @@ def interact(redex: Redex): Unit / Rewrite = redex match {
   case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Superposer(Pos(f2), fs, l)) and f1 == f2 => {
     with on[OutOfBounds].panic() // can not happen
     val n = fs.size
-    val ks = n.list::build { i => s"${k}_${i.show}" }
-    val as = n.list::build { i => s"${a}_${i.show}" }
+    val ks = n.list::build { i => s"${k}_${do fresh().show}_${i.show}" }
+    val as = n.list::build { i => s"${a}_${do fresh().show}_${i.show}" }
     do construct(Superposer(Pos(k), ks.map { ki => Neg(ki) }, l))
     do construct(Duplicator(Neg(a), as.map { ai => Pos(ai) }, l))
     0.each(n) { i =>
@@ -69,28 +86,32 @@ def interact(redex: Redex): Unit / Rewrite = redex match {
     }
   }
 
-  // unary duplicator-superposer annihilation (independent of level)
-  case Redex(Duplicator(Neg(k1), Cons(Pos(out), Nil()), l1), Superposer(Pos(k2), Cons(Neg(ins), Nil()), l2)) and k1 == k2 => {
-    do substitute(Pos(out).super, Pos(ins).super)
-  }
-
-  // unary duplicator annihilation (independent of level)
-  case Redex(Duplicator(Neg(k1), Cons(Pos(out), Nil()), l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 => {
-    do construct(Superposer(Pos(out), ins, l2))
-  }
-
-  // unary superposer annihilation (independent of level)
-  case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), Cons(Neg(ins), Nil()), l2)) and k1 == k2 => {
-    do construct(Duplicator(Neg(ins), out, l1))
-  }
-
   // δ(k-, o1+, ..., on+) <> σ(k+, i1-, ..., im-) ~> [i1-/o1-]...[in-/on-]
-  // duplicator annihilation: DUP-SUP
+  // symmetric duplicator annihilation: DUP-SUP
   case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 and l1 == l2 and out.size == ins.size => {
     list::zip(out, ins).foreach { case (o, i) =>
       do substitute(i.super, o.negate.super)
     }
   }
+
+  // δ(k-, o1+, ..., on+) <> σ(k+, i1-, ..., im-) ~> [i1-/o1-]...[in-/on-]
+  // assymmetric duplicator annihilation: DUP-SUP TODO: COULD THIS EVER HAPPEN in EAL TYPED?
+  // case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 and l1 == l2 and out.size != ins.size => {
+  //   with on[OutOfBounds].panic() // can not happen
+  //   val n = out.size
+  //   val m = ins.size
+  //   if (n > m) {
+  //     val count = n / m
+  //     0.each(m) { i =>
+  //       do construct(Duplicator(ins.get(i), out.slice(i * count, (i + 1) * count), l1))
+  //     }
+  //   } else {
+  //     val count = m / n
+  //     0.each(n) { i =>
+  //       do construct(Superposer(out.get(i), ins.slice(i * count, (i + 1) * count), l2))
+  //     }
+  //   }
+  // }
 
   // δ(k-, o1+, ..., on+) <> σ(k+, i1-, ..., im-) ~> δ(i1-, o11+, ..., o1n+), .m., δ(im-, om1+, ..., omn+),
   //                                                 σ(o1+, o11-, ..., om1-), .n., σ(on+, o1n-, ..., omn-)
@@ -102,13 +123,13 @@ def interact(redex: Redex): Unit / Rewrite = redex match {
     val it = if (n > m) out.map { p => p.name } else ins.map { p => p.name } // interconnection labels (optimally fresh)
     0.each(m) { i => // duplicators
       val outM = n.list::build { j =>
-        Pos(s"${it.get(i)}_${j.show}")
+        Pos(s"${it.get(i)}_${do fresh().show}_${j.show}")
       }
       do construct(Duplicator(ins.get(i), outM, l1))
     }
     0.each(n) { i => // superposers
       val insN = m.list::build { j =>
-        Neg(s"${it.get(j)}_${i.show}")
+        Neg(s"${it.get(j)}_${do fresh().show}_${i.show}")
       }
       do construct(Superposer(out.get(i), insN, l2))
     }
@@ -120,7 +141,7 @@ def interact(redex: Redex): Unit / Rewrite = redex match {
   }
 }
 
-def step_(program: Program, redex: Redex): Unit / emit[Constructor] = {
+def step_(program: Program, redex: Redex): Unit / { emit[Constructor], fresh } = {
   val annihilated = ref[Set[Constructor]](emptyGeneric())
   val substitutions = ref[Map[SuperPort, SuperPort]](emptyGeneric())
 
@@ -146,7 +167,7 @@ def choose(mode: StepMode, redexes: RedexBag): Redex / fail = mode match {
 }
 
 // TODO: emit new redexes directly during interactions (wires get reconnected, check if same port)
-def step(program: Program, mode: StepMode, redexes: RedexBag): Unit / { emit[Constructor], emit[Redex], fail } = {
+def step(program: Program, mode: StepMode, redexes: RedexBag): Unit / { emit[Constructor], emit[Redex], fresh, fail } = {
   val redex = choose(mode, redexes)
   val program: Program = collect { program.step_(redex) }
   program.redexes() // TODO: this could be an expensive call, we should not do it at every step.
@@ -157,10 +178,11 @@ def normalize(program: Program, redexes: RedexBag, max: Int): (Program, Int) = {
   var count = 0
   var state = (program, redexes)
 
+  with freshener
   with exhaustively((empty(), 0))
   count = count + 1
   state = returning::collect {
-    collect { state.first.step(Deterministic(), state.second) } }
+    collect { state.first.step(NonDeterministic(), state.second) } }
   if (count > max) do fail()
   (state.first, count)
 }

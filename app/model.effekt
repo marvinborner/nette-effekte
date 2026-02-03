@@ -7,6 +7,7 @@ import lib/ui/model
 import lib/ui/dirty
 import lib/ui/vector
 import lib/language/ic/term
+import lib/language/ic/ruler
 import lib/language/ic/parser
 import lib/language/ic/compiler
 import lib/language/lc/compiler
@@ -112,6 +113,7 @@ def render[N, C, O](state: EvaluatorState[N]): EvaluatorState[N] / { NetModel[N,
 
 def model[C, O, R, N] { prog: => R / Model[C, O] }: R / { State[EvaluatorState[N]], NetModel[N, C, O] } =
   with on[MissingValue].panic // should be impossible by now
+  with freshener
 
   try { prog() }
   with Model[C, O] {
