@@ -4,7 +4,7 @@ import regex
 
 record Position(line: Int, col: Int, index: Int)
 
-def show(p: Position): String = "${p.line.show}:${p.col.show}:${p.index.show}"
+def show(p: Position): String = s"${p.line.show}:${p.col.show}:${p.index.show}"
 
 type TokenKind { Number(); Ident(); Punct(); Space() }
 

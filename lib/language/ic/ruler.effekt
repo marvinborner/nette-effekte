@@ -39,13 +39,14 @@ def interact(redex: Redex): Unit / Rewrite = redex match {
     do substitute(Neg(b).super, Neg(k).super)
   }
 
-  // δ(k-, k1+, ..., kn+) <> λ(x+, b-, k+)  ~> 
-  // duplicator annihilation: LAM-DUP
+  // δ(k-, k1+, ..., kn+) <> λ(x+, b-, k+) ~> σ(x+, x1-, ..., xn-), δ(b-, b1+, ..., bn+),
+  //                                          λ(x1+, b1-, k1+), ..., λ(xn+, bn-, kn+)
+  // lambda duplication: LAM-DUP
   case Redex(Duplicator(Neg(k1), ks, l), Abstractor(Pos(x), Neg(b), Pos(k2))) and k1 == k2 => {
     with on[OutOfBounds].panic() // can not happen
     val n = ks.size
-    val xs = n.list::build { i => "${x}_${i.show}" }
-    val bs = n.list::build { i => "${b}_${i.show}" }
+    val xs = n.list::build { i => s"${x}_${i.show}" }
+    val bs = n.list::build { i => s"${b}_${i.show}" }
     do construct(Superposer(Pos(x), xs.map { xi => Neg(xi) }, l))
     do construct(Duplicator(Neg(b), bs.map { bi => Pos(bi) }, l))
     0.each(n) { i =>

@@ -10,7 +10,7 @@ def checkPolarities(): Unit / { Exception[WrongFormat], read[Constructor], emit[
     map.get(port.name) match {
       case Some(Right(Pos(_))) and port is Left(Neg(_)) => map = map.delete(port.name)
       case Some(Left(Neg(_))) and port is Right(Pos(_)) => map = map.delete(port.name)
-      case Some(_) => wrongFormat("invalid polarity of ${port.name}")
+      case Some(_) => wrongFormat(s"invalid polarity of ${port.name}")
       case None() => map = map.put(port.name, port)
     }
   }
@@ -23,7 +23,7 @@ def checkPolarities(): Unit / { Exception[WrongFormat], read[Constructor], emit[
     do emit(ctor)
   }
 
-  if (map.size > 1) wrongFormat("only 1 wire is allowed to be free, but ${map.size.show} are")
+  if (map.size > 1) wrongFormat(s"only 1 wire is allowed to be free, but ${map.size.show} are")
 }
 
 def check!(): Unit / { Exception[WrongFormat], read[Constructor], emit[Constructor] } =

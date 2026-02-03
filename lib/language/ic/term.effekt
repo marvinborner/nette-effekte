@@ -87,10 +87,10 @@ def show(ctor: Constructor) = {
   def pretty(many: List[Pos]) = many.map { p => p.show() }.join(", ")
   def pretty(many: List[Neg]) = many.map { p => p.show() }.join(", ")
   ctor match {
-    case Abstractor(x, b, k)       => "λ(${x.show}, ${b.show}, ${k.show})"
-    case Applicator(f, a, k)       => "@(${f.show}, ${a.show}, ${k.show})"
-    case Duplicator(o, ins, label) => "δ(${o.show}, ${ins.pretty})(${label.show})"
-    case Superposer(i, out, label) => "σ(${i.show}, ${out.pretty})(${label.show})"
+    case Abstractor(x, b, k)       => s"λ(${x.show}, ${b.show}, ${k.show})"
+    case Applicator(f, a, k)       => s"@(${f.show}, ${a.show}, ${k.show})"
+    case Duplicator(o, ins, label) => s"δ(${o.show}, ${ins.pretty})(${label.show})"
+    case Superposer(i, out, label) => s"σ(${i.show}, ${out.pretty})(${label.show})"
   }
 }
 
@@ -98,7 +98,7 @@ def show(prog: Program) = {
   var res = ""
   try prog()
   with emit[Constructor] { ctor =>
-    res = "${res}${ctor.show}\n"
+    res = s"${res}${ctor.show}\n"
     resume(())
   }
   res

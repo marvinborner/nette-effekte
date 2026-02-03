@@ -156,8 +156,8 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = {
       def merge(current: Node, fresh: Node) = {
         with on[MissingValue].ignore // can happen on race conditions
         dirtyTags.get.toList.sort.reverse.foreach { tag =>
-          current.querySelector("[data-tag='${tag.show}']").value.replaceWith(
-            fresh.querySelector("[data-tag='${tag.show}']").value
+          current.querySelector(s"[data-tag='${tag.show}']").value.replaceWith(
+            fresh.querySelector(s"[data-tag='${tag.show}']").value
           )
         }
       }
