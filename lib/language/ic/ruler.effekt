@@ -44,16 +44,33 @@ def apply(ctor: Constructor, substitutions: Ref[Map[SuperPort, SuperPort]]): Con
 
 def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
   // @(f-, a-, k+) <> λ(x+, x-, f+) ~> [a-/k-]
-  // beta-reduction: APP-LAM
+  // identitary beta-reduction: APP-LAM
   case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Abstractor(Pos(x1), Neg(x2), Pos(f2))) and f1 == f2 and x1 == x2 => {
     do substitute(Neg(a).super, Neg(k).super)
   }
+
+  // @(f-, a-, k+) <> λ(x+, x-, f+) ~> [a-/k-]
+  // beta-reduction: APP-LAM
+  // case Redex(Applicator(Neg(f1), Neg(a1), Pos(a2)), Abstractor(Pos(x), Neg(b), Pos(f2))) and f1 == f2 and a1 == a2 => {
+  //   do substitute(Neg(b).super, Neg(x).super)
+  // }
 
   // @(f-, a-, k+) <> λ(x+, b-, f+) ~> [a-/x-][b-/k-]
   // beta-reduction: APP-LAM
   case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Abstractor(Pos(x), Neg(b), Pos(f2))) and f1 == f2 => {
     do substitute(Neg(a).super, Neg(x).super)
     do substitute(Neg(b).super, Neg(k).super)
+  }
+
+  // δ(k-, k1+, ..., kn+) <> λ(x+, x-, k+) ~> λ(x1+, x1-, k1+), ..., λ(xn+, xn-, kn+)
+  // identitary lambda duplication: LAM-DUP
+  case Redex(Duplicator(Neg(k1), ks, l), Abstractor(Pos(x1), Neg(x2), Pos(k2))) and k1 == k2 and x1 == x2 => {
+    with on[OutOfBounds].panic() // can not happen
+    val n = ks.size
+    0.each(n) { i =>
+      val x = s"${x1}_${do fresh().show}_${i.show}"
+      do construct(Abstractor(Pos(x), Neg(x), ks.get(i)))
+    }
   }
 
   // δ(k-, k1+, ..., kn+) <> λ(x+, b-, k+) ~> σ(x+, x1-, ..., xn-), δ(b-, b1+, ..., bn+),

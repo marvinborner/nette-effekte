@@ -43,7 +43,7 @@ def tests() = suite("└ ruler tests") {
     }
     val redexes = box { program.redexes() }
     val (normalized, steps) = normalize(program, redexes, 10)
-    assertEqual(steps, 4)
+    assertEqual(steps, 3)
     assertEqual(list::collect[Constructor] { normalized() }, [
       Abstractor(Pos("xSym6_1_1"), Neg("xSym6_1_1"), Pos("xSym2"))
     ])
@@ -58,7 +58,7 @@ def tests() = suite("└ ruler tests") {
     }
     val redexes = box { program.redexes() }
     val (normalized, steps) = normalize(program, redexes, 10)
-    assertEqual(steps, 5)
+    assertEqual(steps, 4)
     assertEqual(list::collect[Constructor] { normalized() }, [
       Abstractor(Pos("xSym9_1_1"), Neg("xSym9_1_1"), Pos("xSym4"))
     ])
@@ -75,7 +75,7 @@ def tests() = suite("└ ruler tests") {
     }
     val redexes = box { program.redexes() }
     val (normalized, steps) = normalize(program, redexes, 20)
-    assertEqual(steps, 11)
+    assertEqual(steps, 10)
     assertEqual(list::collect[Constructor] { normalized() }, [
       Abstractor(Pos("xSym20_8_8"), Neg("xSym20_8_8"), Pos("xSym16"))
     ])
@@ -90,37 +90,24 @@ def tests() = suite("└ ruler tests") {
     }
     val redexes = box { program.redexes() }
     val (normalized, steps) = normalize(program, redexes, 20)
-    assertEqual(steps, 8)
+    assertEqual(steps, 7)
     assertEqual(list::collect[Constructor] { normalized() }, [
       Abstractor(Pos("zSym6"), Neg("zSym6"), Pos("kAbs12"))
     ])
   }
 
-  // test("normalization: ternary identity duplication") {
-  //   val program: Program = collect {
-  //     with assertNoThrow[WrongFormat]
-  //     with source[Char] { "(x=>(x x x) x=>x)".each }
-  //     compile!()
-  //   }
-  //   val redexes = box { program.redexes() }
-  //   val (normalized, steps) = normalize(program, redexes, 100)
-  //   assertEqual(steps, 8)
-  //   assertEqual(list::collect[Constructor] { normalized() }, [
-  //     Constructor(Port("xSym4", Pos()), [Port("xDup11_1", Pos()), Port("xDup11_1", Neg())], LightTriangle())])
-  // }
-
   // TODO: this works, but only without optimizations ("b_k_0 is not defined")
-  // test("normalization: erasing church") {
-  //   val program: Program = collect {
-  //     with assertNoThrow[WrongFormat]
-  //     with source[Char] { "(x=>y=>y s=>z=>(s (s (s z))))".each }
-  //     compile!()
-  //   }
-  //   val redexes = box { program.redexes() }
-  //   val (normalized, steps) = normalize(program, redexes)
-  //   assertEqual(steps, 13)
-  //   assertEqual(list::collect[Constructor] { normalized() }, [
-  //     Constructor(Port("yDup3", Neg()), [Port("ySym1", Pos())], DarkTriangle()),
-  //     Constructor(Port("kAbs2", Pos()), [Port("yDup3", Pos()), Port("ySym1", Neg())], LightTriangle())])
-  // }
+  test("normalization: erasing church") {
+    val program: Program = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "(x=>y=>y s=>z=>(s (s (s z))))".each }
+      compile!()
+    }
+    val redexes = box { program.redexes() }
+    val (normalized, steps) = normalize(program, redexes, 20)
+    assertEqual(steps, 11)
+    assertEqual(list::collect[Constructor] { normalized() }, [
+      Abstractor(Pos("ySym1"), Neg("ySym1"), Pos("kAbs2"))
+    ])
+  }
 }
