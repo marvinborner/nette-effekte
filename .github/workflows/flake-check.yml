@@ -5,7 +5,7 @@ on:
   workflow_dispatch: # allows manual triggering from the Actions UI
   push:
     branches:
-      - main
+      - dev
   pull_request:
     types: [opened, reopened, synchronize]
   repository_dispatch:
