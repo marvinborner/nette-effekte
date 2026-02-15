@@ -27,7 +27,7 @@ def assertEquivalent(bs: List[Constructor], as: List[Constructor]): Unit / { For
 
   val aPorts = fromListGeneric(as.flatMap { ctor => ctor.ports.map { p => p.name } })
   val bPorts = fromListGeneric(bs.flatMap { ctor => ctor.ports.map { p => p.name } })
-  assertEqual(aPorts.size, bPorts.size, s"Expected ${aPorts.size.show} unique variables, but got ${bPorts.size.show}:\n" ++ aPorts.toList.show ++ " vs " ++ bPorts.toList.show ++ "\nin " ++ as.show { a => a.show } ++ "\nvs " ++ bs.show { b => b.show })
+  assertEqual(aPorts.size, bPorts.size, s"Expected ${aPorts.size.show} unique variables, but got ${bPorts.size.show}:\n" ++ aPorts.toList.show ++ " vs " ++ bPorts.toList.show ++ "\nin " ++ as.show() ++ "\nvs " ++ bs.show())
 
   as.zip(bs).foreach {
     case (Abstractor(Pos(x1), Neg(b1), Pos(k1)), Abstractor(Pos(x2), Neg(b2), Pos(k2))) => ()

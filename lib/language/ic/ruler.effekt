@@ -117,7 +117,6 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
     with on[OutOfBounds].panic() // can not happen
     val n = out.size
     val m = ins.size
-    val it = if (n > m) out.map { p => p.name } else ins.map { p => p.name } // interconnection labels (optimally fresh)
     0.each(m) { i => // duplicators
       val outM = n.list::build { j =>
         Pos(s"${do fresh().show}")
