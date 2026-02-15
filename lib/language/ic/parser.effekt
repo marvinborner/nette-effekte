@@ -78,7 +78,7 @@ def parseS(input: String): List[Constructor] / Exception[WrongFormat] =
     }
     def fail(msg) = Error(WrongFormat(), msg)
   }
-  with LexerError { (msg, pos) => Error(WrongFormat(), s"${pos.show}: ${msg}") }
+  with LexerError { (msg, pos) => Error(WrongFormat(), s"${pos.lexer::show}: ${msg}") }
   .value
 
 // TODO: also support parsing rules (emit[Rule])

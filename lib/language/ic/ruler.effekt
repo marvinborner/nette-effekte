@@ -38,39 +38,37 @@ def apply(port: SuperPort, substitutions: Ref[Map[SuperPort, SuperPort]]): Super
     newPort
   } else port
 
+// Net...[x^p/y^p]...[z^p/x^p]... --> Net...[z^p/y^p]...
+// Net...[z^p/x^p]...[x^p/y^p]... --> Net...[z^p/y^p]...
+def apply(substitutees: Ref[Map[SuperPort, SuperPort]]) = {
+  def go(): Unit = {
+    var changed = false
+    substitutees.get.toList.foreach { (t){label} =>
+      val (to, from) = t
+      if (substitutees.get.contains(from)) {
+        changed = true
+        val newFrom = substitutees.get.getOrElse(from) { panic("wtf") }
+        substitutees.map { m => m.put(to, newFrom) }
+        substitutees.map { m => m.delete(from) }
+        label.break()
+      }
+    }
+    if (changed) go()
+  }
+  go()
+}
+
 /// applies one-shot substitutions on constructor
 def apply(ctor: Constructor, substitutions: Ref[Map[SuperPort, SuperPort]]): Constructor =
   ctor.map { p => p.apply(substitutions).name }
 
 def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
-  // @(f-, a-, k+) <> λ(x+, x-, f+) ~> [a-/k-]
-  // identitary beta-reduction: APP-LAM
-  case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Abstractor(Pos(x1), Neg(x2), Pos(f2))) and f1 == f2 and x1 == x2 => {
-    do substitute(Neg(a).super, Neg(k).super)
-  }
-
-  // @(f-, a-, k+) <> λ(x+, x-, f+) ~> [a-/k-]
-  // beta-reduction: APP-LAM
-  // case Redex(Applicator(Neg(f1), Neg(a1), Pos(a2)), Abstractor(Pos(x), Neg(b), Pos(f2))) and f1 == f2 and a1 == a2 => {
-  //   do substitute(Neg(b).super, Neg(x).super)
-  // }
-
-  // @(f-, a-, k+) <> λ(x+, b-, f+) ~> [a-/x-][b-/k-]
+  // @(f-, a-, k+) <> λ(x+, b-, f+) ~> [x+/a+][b-/k-]
   // beta-reduction: APP-LAM
   case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Abstractor(Pos(x), Neg(b), Pos(f2))) and f1 == f2 => {
+    // do substitute(Pos(x).super, Pos(a).super)
     do substitute(Neg(a).super, Neg(x).super)
     do substitute(Neg(b).super, Neg(k).super)
-  }
-
-  // δ(k-, k1+, ..., kn+) <> λ(x+, x-, k+) ~> λ(x1+, x1-, k1+), ..., λ(xn+, xn-, kn+)
-  // identitary lambda duplication: LAM-DUP
-  case Redex(Duplicator(Neg(k1), ks, l), Abstractor(Pos(x1), Neg(x2), Pos(k2))) and k1 == k2 and x1 == x2 => {
-    with on[OutOfBounds].panic() // can not happen
-    val n = ks.size
-    0.each(n) { i =>
-      val x = s"${x1}_${do fresh().show}_${i.show}"
-      do construct(Abstractor(Pos(x), Neg(x), ks.get(i)))
-    }
   }
 
   // δ(k-, k1+, ..., kn+) <> λ(x+, b-, k+) ~> σ(x+, x1-, ..., xn-), δ(b-, b1+, ..., bn+),
@@ -79,8 +77,8 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
   case Redex(Duplicator(Neg(k1), ks, l), Abstractor(Pos(x), Neg(b), Pos(k2))) and k1 == k2 => {
     with on[OutOfBounds].panic() // can not happen
     val n = ks.size
-    val xs = n.list::build { i => s"${x}_${do fresh().show}_${i.show}" }
-    val bs = n.list::build { i => s"${b}_${do fresh().show}_${i.show}" }
+    val xs = n.list::build { i => s"${do fresh().show}" }
+    val bs = n.list::build { i => s"${do fresh().show}" }
     do construct(Superposer(Pos(x), xs.map { xi => Neg(xi) }, l))
     do construct(Duplicator(Neg(b), bs.map { bi => Pos(bi) }, l))
     0.each(n) { i =>
@@ -94,8 +92,8 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
   case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Superposer(Pos(f2), fs, l)) and f1 == f2 => {
     with on[OutOfBounds].panic() // can not happen
     val n = fs.size
-    val ks = n.list::build { i => s"${k}_${do fresh().show}_${i.show}" }
-    val as = n.list::build { i => s"${a}_${do fresh().show}_${i.show}" }
+    val ks = n.list::build { i => s"${do fresh().show}" }
+    val as = n.list::build { i => s"${do fresh().show}" }
     do construct(Superposer(Pos(k), ks.map { ki => Neg(ki) }, l))
     do construct(Duplicator(Neg(a), as.map { ai => Pos(ai) }, l))
     0.each(n) { i =>
@@ -108,31 +106,13 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
   case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 and l1 == l2 and out.size == ins.size => {
     list::zip(out, ins).foreach { case (o, i) =>
       do substitute(i.super, o.negate.super)
+      // do substitute(o.super, i.negate.super)
     }
   }
 
-  // δ(k-, o1+, ..., on+) <> σ(k+, i1-, ..., im-) ~> [i1-/o1-]...[in-/on-]
-  // assymmetric duplicator annihilation: DUP-SUP TODO: COULD THIS EVER HAPPEN in EAL TYPED?
-  // case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 and l1 == l2 and out.size != ins.size => {
-  //   with on[OutOfBounds].panic() // can not happen
-  //   val n = out.size
-  //   val m = ins.size
-  //   if (n > m) {
-  //     val count = n / m
-  //     0.each(m) { i =>
-  //       do construct(Duplicator(ins.get(i), out.slice(i * count, (i + 1) * count), l1))
-  //     }
-  //   } else {
-  //     val count = m / n
-  //     0.each(n) { i =>
-  //       do construct(Superposer(out.get(i), ins.slice(i * count, (i + 1) * count), l2))
-  //     }
-  //   }
-  // }
-
   // δ(k-, o1+, ..., on+) <> σ(k+, i1-, ..., im-) ~> δ(i1-, o11+, ..., o1n+), .m., δ(im-, om1+, ..., omn+),
   //                                                 σ(o1+, o11-, ..., om1-), .n., σ(on+, o1n-, ..., omn-)
-  // duplicator commutation: DUP-SUP // TODO: label management?
+  // duplicator commutation: DUP-SUP
   case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 and l1 != l2 => {
     with on[OutOfBounds].panic() // can not happen
     val n = out.size
@@ -140,20 +120,20 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
     val it = if (n > m) out.map { p => p.name } else ins.map { p => p.name } // interconnection labels (optimally fresh)
     0.each(m) { i => // duplicators
       val outM = n.list::build { j =>
-        Pos(s"${it.get(i)}_${do fresh().show}_${j.show}")
+        Pos(s"${do fresh().show}")
       }
       do construct(Duplicator(ins.get(i), outM, l1))
     }
     0.each(n) { i => // superposers
       val insN = m.list::build { j =>
-        Neg(s"${it.get(j)}_${do fresh().show}_${i.show}")
+        Neg(s"${do fresh().show}")
       }
       do construct(Superposer(out.get(i), insN, l2))
     }
   }
   
   case _ => {
-    inspect(redex)
+    // inspect(redex)
     panic("invalid redex")
   }
 }
@@ -172,6 +152,13 @@ def step_(program: Program, redex: Redex): Unit / { emit[Constructor], fresh } =
     def substitute(from, to) = resume(substitutions.map { m => m.put(to, from) })
   }
 
+  // print("\nsubst before: ")
+  // substitutions.get.foreach { (to, from) => print("${from.show}/${to.show}, ") }
+  substitutions.apply()
+  // print("\n subst after: ")
+  // substitutions.get.foreach { (to, from) => print("${from.show}/${to.show}, ") }
+  // println("\n")
+
   for { program() } { ctor =>
     if (not(annihilated.get.contains(ctor)))
       do emit(ctor.apply(substitutions))
@@ -186,12 +173,22 @@ def choose(mode: StepMode, redexes: RedexBag): Redex / fail = mode match {
 // TODO: emit new redexes directly during interactions (wires get reconnected, check if same port)
 def step(program: Program, mode: StepMode, redexes: RedexBag): Unit / { emit[Constructor], emit[Redex], fresh, fail } = {
   val redex = choose(mode, redexes)
+  // println("\nREDEX: " ++ redex.left.show ++ " - " ++ redex.right.show)
   val program: Program = collect { program.step_(redex) }
+
+  // println(list::collect[Constructor] { program() }.show { ctor => ctor.show })
+
+  // val posPorts = collect[Constructor] { program() }.flatMap { ctor => ctor.ports }.filter { p => p.isPos }
+  // val negPorts = collect[Constructor] { program() }.flatMap { ctor => ctor.ports }.filter { p => p.isNeg }
+  // if (posPorts.size != negPorts.size + 1)
+  //   println(s"\n!!! Pos ${posPorts.size.show} != Neg ${negPorts.size.show}: " ++ posPorts.show { p => p.name } ++ " vs " ++ negPorts.show { p => p.name })
+
   program.redexes() // TODO: this could be an expensive call, we should not do it at every step.
   program()
 }
 
 def normalize(program: Program, redexes: RedexBag, max: Int): (Program, Int) = {
+  // println("\n\n=== NORMALIZATION ===\n")
   var count = 0
   var state = (program, redexes)
 

@@ -9,7 +9,7 @@ import lib/language/ic/term
 def tests() = suite("└ lc tests") {
   test("lc generic ops") {
     val omega = App(Abs("x", App(Sym("x"), Sym("x"))), Abs("x", App(Sym("x"), Sym("x"))))
-    assertEqual(omega.show, "(λx.(x x) λx.(x x))")
+    assertEqual(omega.term::show, "(λx.(x x) λx.(x x))")
     assertEqual(omega.length, 9)
   }
 

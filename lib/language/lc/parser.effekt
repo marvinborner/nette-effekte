@@ -42,7 +42,7 @@ def parseS(input: String): List[Term] / Exception[WrongFormat] =
     }
     def fail(msg) = Error(WrongFormat(), msg)
   }
-  with LexerError { (msg, pos) => Error(WrongFormat(), s"${pos.show}: ${msg}") }
+  with LexerError { (msg, pos) => Error(WrongFormat(), s"${pos.lexer::show}: ${msg}") }
   .value
 
 def parse!(): Unit / { Exception[WrongFormat], read[Char], emit[Term] } =

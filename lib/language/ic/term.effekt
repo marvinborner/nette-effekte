@@ -17,6 +17,26 @@ def name(port: SuperPort) = port match {
   case Right(p) => p.name
 }
 
+def show(port: SuperPort): String = port match {
+  case Left(p)  => p.name ++ "-"
+  case Right(p) => p.name ++ "+"
+}
+
+def negate(port: SuperPort) = port match {
+  case Left(p)  => Right(p.negate)
+  case Right(p) => Left(p.negate)
+}
+
+def isNeg(port: SuperPort) = port match {
+  case Left(p)  => true
+  case Right(p) => false
+}
+
+def isPos(port: SuperPort) = port match {
+  case Left(p)  => false
+  case Right(p) => true
+}
+
 def map(port: Pos) { f: Port => Port }: Pos = Pos(port.name.f)
 def map(port: Neg) { f: Port => Port }: Neg = Neg(port.name.f)
 
@@ -53,6 +73,8 @@ def aux(ctor: Constructor): List[SuperPort] = ctor match {
   case Duplicator(o, ins, label) => ins.map { i => i.super }
   case Superposer(i, out, label) => out.map { o => o.super }
 }
+
+def ports(ctor: Constructor): List[SuperPort] = Cons(ctor.pp, ctor.aux)
 
 def map(ctor: Constructor) { func: SuperPort => Port }: Constructor = ctor match {
   case Abstractor(x, b, k)       => Abstractor(Pos(x.super.func), Neg(b.super.func), Pos(k.super.func))
