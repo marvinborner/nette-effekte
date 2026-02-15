@@ -56,7 +56,7 @@ def view(): Html[Event] / { Model[Canvas, CanvasOp], tag } = {
   div([ "grid" ], [
     div([ "menu" ], [
       text("Nette Effekte"),
-      button([ OnClick(NextMode()) ], [], [ text("Current Mode: " ++ show(do getMode())) ]),
+      button([ OnClick(NextMode()) ], [], [ text("Current Mode: " ++ model::show(do getMode())) ]),
       button([ OnClick(Render())], [], [ text("Render") ]),
       button([ OnClick(StepReduction()) ], [], [ text("Step") ]),
       button([ OnClick(Normalize()) ], [], [ text("Normalize") ]),

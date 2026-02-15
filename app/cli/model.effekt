@@ -16,21 +16,21 @@ def empty() = NetState(empty(), empty(), empty(), empty())
 
 def stringify(redexes: RedexBag): List[String] = 
   collect[Redex] { redexes() }.map {
-    case Redex(left, right) => [left.show, right.show] }.join
+    case Redex(left, right) => [left.term::show, right.term::show] }.join
 
 def load(state: NetState) { prog: => Unit / emit[Constructor] }: NetState = {
   with on[WrongFormat].panic // impossible by now
   val program: Program = collect { prog() }
   val net: Net = collect { source[Constructor] { program() } { net!() } }
   val redexes: RedexBag = collect { program.redexes() }
-  NetState(net, program, redexes, Terminal(program.show, redexes.stringify))
+  NetState(net, program, redexes, Terminal(program.term::show, redexes.stringify))
 }
 
 def step(state: NetState) { stepper: (Program, RedexBag) => Unit / { emit[Constructor], emit[Redex] } }: NetState / { Redraw, fail } = {
   do redrawFull()
   val (loaded, redexes) = returning::collect {
     state.load { state.program.stepper(state.redexes) } }
-  NetState(loaded.net, loaded.program, redexes, Terminal(loaded.program.show, redexes.stringify))
+  NetState(loaded.net, loaded.program, redexes, Terminal(loaded.program.term::show, redexes.stringify))
 }
 
 def cli[R] { prog: => R / NetModel[NetState, Terminal, Unit] }: R =

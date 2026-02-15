@@ -104,7 +104,7 @@ def render[N, C, O](state: EvaluatorState[N]): EvaluatorState[N] / { NetModel[N,
     }
     case EvaluatorState(LambdaCalculus(), sources, net, errors) => {
       val prog: Program = collect { lc::compile!() } // reify for storing in IC source
-      val sources_ = sources.put(InteractionCalculus(), box { prog.show.each })
+      val sources_ = sources.put(InteractionCalculus(), box { prog.term::show.each })
       val net_ = do render(do load(net) { prog() })
       EvaluatorState(LambdaCalculus(), sources_, net_, "")
     }

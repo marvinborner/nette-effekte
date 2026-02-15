@@ -9,12 +9,6 @@ def collapse[A, B, R](port: Either[A, B]) { left: A => R } { right: B => R }: R 
   case Right(b) => right(b)
 }
 
-// println without the ln: only for jsNode, of course
-extern def print(s: String) at io: Unit =
-  jsNode "process.stdout.write(${s})"
-  jsWeb "console.log(${s})"
-  default { println(s) }
-
 def size[A] { s: => Unit / emit[A] }: Int = {
   var size = 0
   try s()
@@ -31,12 +25,6 @@ def choose[A] { stream: () => Unit / emit[A] }: A / fail =
     if (random() > 0.5) a
     else resume(())
   }
-
-def init[A](l: List[A]): List[A] / Exception[MissingValue] = l match {
-  case Nil() => do raise(MissingValue(), "Trying to get the beginning of an empty list")
-  case Cons(a, Nil()) => Nil()
-  case Cons(a, as) => Cons(a, as.init)
-}
 
 def exhaustively[R](init: R) { program: () => R / fail }: R =
   var res: R = init
