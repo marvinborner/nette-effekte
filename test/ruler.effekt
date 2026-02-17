@@ -27,13 +27,17 @@ def assertEquivalent(bs: List[Constructor], as: List[Constructor]): Unit / { For
 
   val aPorts = fromListGeneric(as.flatMap { ctor => ctor.ports.map { p => p.name } })
   val bPorts = fromListGeneric(bs.flatMap { ctor => ctor.ports.map { p => p.name } })
-  assertEqual(aPorts.size, bPorts.size, s"Expected ${aPorts.size.show} unique variables, but got ${bPorts.size.show}:\n" ++ aPorts.toList.show ++ " vs " ++ bPorts.toList.show ++ "\nin " ++ as.show() ++ "\nvs " ++ bs.show())
+  assertEqual(aPorts.size, bPorts.size, s"Expected ${aPorts.size.show} unique variables, but got ${bPorts.size.show}:\n" ++ aPorts.toList.show ++ " vs " ++ bPorts.toList.show ++ "\nin " ++ as.show { p => p.show } ++ "\nvs " ++ bs.show { p => p.show })
 
   as.zip(bs).foreach {
     case (Abstractor(Pos(x1), Neg(b1), Pos(k1)), Abstractor(Pos(x2), Neg(b2), Pos(k2))) => ()
     case (Applicator(Neg(f1), Neg(a1), Pos(k1)), Applicator(Neg(f2), Neg(a2), Pos(k2))) => ()
-    case (Duplicator(Neg(o1), ins1, label1), Duplicator(Neg(o2), ins2, label2)) => assertEqual(label1, label2)
-    case (Superposer(Pos(i1), out1, label1), Superposer(Pos(i2), out2, label2)) => assertEqual(label1, label2)
+    case (Duplicator(Neg(o1), ins1, label1), Duplicator(Neg(o2), ins2, label2)) =>
+      assertEqual(ins1.size, ins2.size)
+      assertEqual(label1, label2)
+    case (Superposer(Pos(i1), out1, label1), Superposer(Pos(i2), out2, label2)) =>
+      assertEqual(out1.size, out2.size)
+      assertEqual(label1, label2)
     case (_, _) => assertEqual(as, bs) // will fail, but we'll see why
   }
   assertEqual(as.size, bs.size)
@@ -168,6 +172,42 @@ def tests() = suite("└ ruler tests") {
     assertEqual(steps, 11)
     assertEquivalent(list::collect[Constructor] { normalized() }, [
       Abstractor(Pos("ySym1"), Neg("ySym1"), Pos("kAbs2"))
+    ])
+  }
+
+  test("normalization: s k k") {
+    with confluence
+    val program: Program = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "(x=>y=>z=>(x z (y z)) x=>y=>x x=>y=>x)".each }
+      compile!()
+    }
+    val redexes = box { program.redexes() }
+    val (normalized, steps) = normalize(program, redexes, 10)
+    assertEqual(steps, 7)
+    assertEquivalent(list::collect[Constructor] { normalized() }, [
+      Duplicator(Neg("zSym5"), Nil(), 1),
+      Duplicator(Neg("zDup9"), [Pos("zSym2"), Pos("zSym5")], 0),
+      Abstractor(Pos("zDup9"), Neg("zSym2"), Pos("kAbs8"))
+    ])
+  }
+
+  val iota = "s=>(s x=>y=>z=>(x z (y z)) x=>y=>x)"
+
+  test("normalization: iota iota") {
+    with confluence
+    val program: Program = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { s"(${iota} ${iota})".each }
+      compile!()
+    }
+    val redexes = box { program.redexes() }
+    val (normalized, steps) = normalize(program, redexes, 20)
+    assertEqual(steps, 19)
+    assertEquivalent(list::collect[Constructor] { normalized() }, [
+      Duplicator(Neg("zDup29"), [Pos("zSym22"), Pos("zSym25")], 2),
+      Abstractor(Pos("zDup29"), Neg("zSym22"), Pos("kAbs28")),
+      Duplicator(Neg("zSym25"), [], 2)
     ])
   }
 }

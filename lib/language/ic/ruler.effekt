@@ -101,6 +101,22 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
     }
   }
 
+  // δ(k-) <> σ(k+, i1-, ..., im-) ~> δ(i1-), ..., δ(in-)
+  // asymmetric eraser annihilation: DUP-SUP
+  case Redex(Duplicator(Neg(k1), Nil(), l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 => {
+    ins.foreach { i =>
+      do construct(Duplicator(i, Nil(), l1))
+    }
+  }
+
+  // δ(k-, o1+, ..., on+) <> σ(k+) ~> σ(o1+), ..., σ(on+)
+  // asymmetric coeraser annihilation: DUP-SUP
+  case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), Nil(), l2)) and k1 == k2 => {
+    out.foreach { o =>
+      do construct(Superposer(o, Nil(), l2))
+    }
+  }
+
   // δ(k-, o1+, ..., on+) <> σ(k+, i1-, ..., im-) ~> [i1-/o1-]...[in-/on-]
   // symmetric duplicator annihilation: DUP-SUP
   case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 and l1 == l2 and out.size == ins.size => {
