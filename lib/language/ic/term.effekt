@@ -44,6 +44,7 @@ def map(port: Neg) { f: Port => Port }: Neg = Neg(port.name.f)
 // def negate(port: Port) = port.map { pol => pol.negate }
 
 type Constructor {
+  Initiator(k: Neg);
   Abstractor(x: Pos, b: Neg, k: Pos);
   Applicator(f: Neg, a: Neg, k: Pos);
   Duplicator(o: Neg, ins: List[Pos], label: Int);
@@ -54,6 +55,11 @@ type Constructor {
   // def delta(pp: Port, aux: List[Port], label: Int): A
 // }
 
+def canInteract(ctor: Constructor) = ctor match{
+  case Initiator(k) => false
+  case _            => true
+}
+
 type Program = => Unit / emit[Constructor] at {}
 def empty(): Program = box {}
 
@@ -61,6 +67,7 @@ record Redex(left: Constructor, right: Constructor) // pp: (-, +)
 type RedexBag = => Unit / emit[Redex] at {}
 
 def pp(ctor: Constructor): SuperPort = ctor match {
+  case Initiator(k)              => k.super
   case Abstractor(x, b, k)       => k.super
   case Applicator(f, a, k)       => f.super
   case Duplicator(o, ins, label) => o.super
@@ -68,6 +75,7 @@ def pp(ctor: Constructor): SuperPort = ctor match {
 }
 
 def aux(ctor: Constructor): List[SuperPort] = ctor match {
+  case Initiator(k)              => []
   case Abstractor(x, b, k)       => [x.super, b.super]
   case Applicator(f, a, k)       => [a.super, k.super]
   case Duplicator(o, ins, label) => ins.map { i => i.super }
@@ -77,6 +85,7 @@ def aux(ctor: Constructor): List[SuperPort] = ctor match {
 def ports(ctor: Constructor): List[SuperPort] = Cons(ctor.pp, ctor.aux)
 
 def map(ctor: Constructor) { func: SuperPort => Port }: Constructor = ctor match {
+  case Initiator(k)              => Initiator(Neg(k.super.func))
   case Abstractor(x, b, k)       => Abstractor(Pos(x.super.func), Neg(b.super.func), Pos(k.super.func))
   case Applicator(f, a, k)       => Applicator(Neg(f.super.func), Neg(a.super.func), Pos(k.super.func))
   case Duplicator(i, out, label) => Duplicator(Neg(i.super.func), out.map { s => Pos(s.super.func) }, label)
@@ -91,6 +100,7 @@ def map(ctor: Constructor) { func: SuperPort => Port }: Constructor = ctor match
 // }
 
 def kind(ctor: Constructor): Kind = ctor match {
+  case Initiator(k)              => LightTriangle()
   case Abstractor(x, b, k)       => LightTriangle()
   case Applicator(f, a, k)       => LightTriangle()
   case Duplicator(o, ins, label) => DarkTriangle()
@@ -109,6 +119,7 @@ def show(ctor: Constructor) = {
   def pretty(many: List[Pos]) = many.map { p => p.show() }.join(", ")
   def pretty(many: List[Neg]) = many.map { p => p.show() }.join(", ")
   ctor match {
+    case Initiator(k)              => s"ι(${k.show})"
     case Abstractor(x, b, k)       => s"λ(${x.show}, ${b.show}, ${k.show})"
     case Applicator(f, a, k)       => s"@(${f.show}, ${a.show}, ${k.show})"
     case Duplicator(o, ins, label) => s"δ(${o.show}, ${ins.pretty})(${label.show})"

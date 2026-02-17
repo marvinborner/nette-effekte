@@ -28,7 +28,7 @@ def redexes(program: Program): Unit / emit[Redex] =
   with val ctorA = for { program() }
   with val ctorB = for { program() }
   if (ctorA.term::pp is Left(Neg(_)) and ctorB.term::pp is Right(Pos(_)))
-    if (ctorA.pp.name == ctorB.pp.name)
+    if (ctorA.canInteract && ctorB.canInteract && ctorA.pp.name == ctorB.pp.name)
       do emit(Redex(ctorA, ctorB))
 
 def apply(port: SuperPort, substitutions: Ref[Map[SuperPort, SuperPort]]): SuperPort =
@@ -77,8 +77,8 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
   case Redex(Duplicator(Neg(k1), ks, l), Abstractor(Pos(x), Neg(b), Pos(k2))) and k1 == k2 => {
     with on[OutOfBounds].panic() // can not happen
     val n = ks.size
-    val xs = n.list::build { i => s"${do fresh().show}" }
-    val bs = n.list::build { i => s"${do fresh().show}" }
+    val xs = n.list::build { i => do fresh().show }
+    val bs = n.list::build { i => do fresh().show }
     do construct(Superposer(Pos(x), xs.map { xi => Neg(xi) }, l))
     do construct(Duplicator(Neg(b), bs.map { bi => Pos(bi) }, l))
     0.each(n) { i =>
@@ -92,8 +92,8 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
   case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Superposer(Pos(f2), fs, l)) and f1 == f2 => {
     with on[OutOfBounds].panic() // can not happen
     val n = fs.size
-    val ks = n.list::build { i => s"${do fresh().show}" }
-    val as = n.list::build { i => s"${do fresh().show}" }
+    val ks = n.list::build { i => do fresh().show }
+    val as = n.list::build { i => do fresh().show }
     do construct(Superposer(Pos(k), ks.map { ki => Neg(ki) }, l))
     do construct(Duplicator(Neg(a), as.map { ai => Pos(ai) }, l))
     0.each(n) { i =>
@@ -133,28 +133,26 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
     with on[OutOfBounds].panic() // can not happen
     val n = out.size
     val m = ins.size
+    val fresh = max(n, m).list::build { _ => do fresh().show  }
     0.each(m) { i => // duplicators
-      val outM = n.list::build { j =>
-        Pos(s"${do fresh().show}")
-      }
+      val outM = n.list::build { j => Pos(s"${fresh.get(i)}_${j.show}") }
       do construct(Duplicator(ins.get(i), outM, l1))
     }
     0.each(n) { i => // superposers
-      val insN = m.list::build { j =>
-        Neg(s"${do fresh().show}")
-      }
+      val insN = m.list::build { j => Neg(s"${fresh.get(j)}_${i.show}") }
       do construct(Superposer(out.get(i), insN, l2))
     }
   }
   
   case _ => {
-    // inspect(redex)
+    inspect(redex)
     panic("invalid redex")
   }
 }
 
 def step_(program: Program, redex: Redex): Unit / { emit[Constructor], fresh } = {
   val annihilated = ref[Set[Constructor]](emptyGeneric())
+  val constructed = ref[Set[Constructor]](emptyGeneric())
   val substitutions = ref[Map[SuperPort, SuperPort]](emptyGeneric())
 
   try {
@@ -188,18 +186,21 @@ def choose(mode: StepMode, redexes: RedexBag): Redex / fail = mode match {
 // TODO: emit new redexes directly during interactions (wires get reconnected, check if same port)
 def step(program: Program, mode: StepMode, redexes: RedexBag): Unit / { emit[Constructor], emit[Redex], fresh, fail } = {
   val redex = choose(mode, redexes)
-  // println("\nREDEX: " ++ redex.left.show ++ " - " ++ redex.right.show)
   val program: Program = collect { program.step_(redex) }
 
   // println(list::collect[Constructor] { program() }.show { ctor => ctor.show })
 
-  // val posPorts = collect[Constructor] { program() }.flatMap { ctor => ctor.ports }.filter { p => p.isPos }
-  // val negPorts = collect[Constructor] { program() }.flatMap { ctor => ctor.ports }.filter { p => p.isNeg }
-  // if (posPorts.size != negPorts.size + 1)
-  //   println(s"\n!!! Pos ${posPorts.size.show} != Neg ${negPorts.size.show}: " ++ posPorts.show { p => p.name } ++ " vs " ++ negPorts.show { p => p.name })
-
-  program.redexes() // TODO: this could be an expensive call, we should not do it at every step.
-  program()
+  // only for debugging
+  val posPorts = collect[Constructor] { program() }.flatMap { ctor => ctor.ports }.filter { p => p.isPos }.map { p => p.name }.set::fromListGeneric
+  val negPorts = collect[Constructor] { program() }.flatMap { ctor => ctor.ports }.filter { p => p.isNeg }.map { p => p.name }.set::fromListGeneric
+  if (posPorts.difference(negPorts).size != 0) {
+    println("\n!!! FATAL " ++ posPorts.toList.show ++ " vs " ++ negPorts.toList.show)
+    println("\nREDEX: " ++ redex.left.show ++ " - " ++ redex.right.show)
+    println(posPorts.difference(negPorts).toList.show)
+  } else {
+    program.redexes() // TODO: this could be an expensive call, we should not do it at every step.
+    program()
+  }
 }
 
 def normalize(program: Program, redexes: RedexBag, max: Int): (Program, Int) = {

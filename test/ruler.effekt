@@ -38,6 +38,7 @@ def assertEquivalent(bs: List[Constructor], as: List[Constructor]): Unit / { For
     case (Superposer(Pos(i1), out1, label1), Superposer(Pos(i2), out2, label2)) =>
       assertEqual(out1.size, out2.size)
       assertEqual(label1, label2)
+    case (Initiator(Neg(k1)), Initiator(Neg(k2))) => ()
     case (_, _) => assertEqual(as, bs) // will fail, but we'll see why
   }
   assertEqual(as.size, bs.size)
@@ -60,7 +61,8 @@ def tests() = suite("└ ruler tests") {
     val (normalized, steps) = normalize(program, redexes, 10)
     assertEqual(steps, 1)
     assertEquivalent(list::collect[Constructor] { normalized() }, [
-      Abstractor(Pos("xSym3"), Neg("xSym3"), Pos("xSym1"))
+      Abstractor(Pos("xSym3"), Neg("xSym3"), Pos("xSym1")),
+      Initiator(Neg("xSym1"))
     ])
   }
 
@@ -75,7 +77,8 @@ def tests() = suite("└ ruler tests") {
     val (normalized, steps) = normalize(program, redexes, 10)
     assertEqual(steps, 4)
     assertEquivalent(list::collect[Constructor] { normalized() }, [
-      Abstractor(Pos("xSym6_1_1"), Neg("xSym6_1_1"), Pos("xSym6_0_0"))
+      Abstractor(Pos("xSym6_1_1"), Neg("xSym6_1_1"), Pos("xSym6_0_0")),
+      Initiator(Neg("xSym6_0_0"))
     ])
   }
 
@@ -90,7 +93,8 @@ def tests() = suite("└ ruler tests") {
     val (normalized, steps) = normalize(program, redexes, 10)
     assertEqual(steps, 5)
     assertEquivalent(list::collect[Constructor] { normalized() }, [
-      Abstractor(Pos("xSym9_1_1"), Neg("xSym9_1_1"), Pos("xSym9_0_0"))
+      Abstractor(Pos("xSym9_1_1"), Neg("xSym9_1_1"), Pos("xSym9_0_0")),
+      Initiator(Neg("xSym9_0_0"))
     ])
   }
 
@@ -105,7 +109,8 @@ def tests() = suite("└ ruler tests") {
     val (normalized, steps) = normalize(program, redexes, 20)
     assertEqual(steps, 11)
     assertEquivalent(list::collect[Constructor] { normalized() }, [
-      Abstractor(Pos("xSym20_8_8"), Neg("xSym20_8_8"), Pos("xSym20_7_7"))
+      Abstractor(Pos("xSym20_8_8"), Neg("xSym20_8_8"), Pos("xSym20_7_7")),
+      Initiator(Neg("xSym20_7_7"))
     ])
   }
 
@@ -120,7 +125,8 @@ def tests() = suite("└ ruler tests") {
     val (normalized, steps) = normalize(program, redexes, 20)
     assertEqual(steps, 9)
     assertEquivalent(list::collect[Constructor] { normalized() }, [
-      Abstractor(Pos("xSym9_1_1"), Neg("xSym9_1_1"), Pos("kAbs6"))
+      Abstractor(Pos("xSym9_1_1"), Neg("xSym9_1_1"), Pos("kAbs6")),
+      Initiator(Neg("kAbs6"))
     ])
   }
 
@@ -137,7 +143,8 @@ def tests() = suite("└ ruler tests") {
     assertEquivalent(list::collect[Constructor] { normalized() }, [ // x => y => (x y)
       Applicator(Neg("xSym17_5_5"), Neg("ySym18_17_5"), Pos("kApp19_19_1")), // (x y)
       Abstractor(Pos("ySym18_17_5"), Neg("kApp19_19_1"), Pos("kAbs20_6_0")), // y =>
-      Abstractor(Pos("xSym17_5_5"), Neg("kAbs20_6_0"), Pos("kAbs14"))        // x =>
+      Abstractor(Pos("xSym17_5_5"), Neg("kAbs20_6_0"), Pos("kAbs14")),       // x =>
+      Initiator(Neg("kAbs14"))
     ])
   }
 
@@ -156,7 +163,8 @@ def tests() = suite("└ ruler tests") {
       Duplicator(Neg("yEra11_5_1"), Nil(), 1),
       Abstractor(Pos("yEra11_4_0"), Neg("xSym9_0_0"), Pos("kAbs10_2_0")), // y11_4 =>
       Abstractor(Pos("yEra11_5_1"), Neg("xSym9_1_1"), Pos("xSym9_0_0")),  // y11_5 =>
-      Abstractor(Pos("xSym9_1_1"), Neg("kAbs10_2_0"), Pos("kAbs6"))       // x9 =>
+      Abstractor(Pos("xSym9_1_1"), Neg("kAbs10_2_0"), Pos("kAbs6")),      // x9 =>
+      Initiator(Neg("kAbs6"))
     ])
   }
 
@@ -171,7 +179,8 @@ def tests() = suite("└ ruler tests") {
     val (normalized, steps) = normalize(program, redexes, 20)
     assertEqual(steps, 11)
     assertEquivalent(list::collect[Constructor] { normalized() }, [
-      Abstractor(Pos("ySym1"), Neg("ySym1"), Pos("kAbs2"))
+      Abstractor(Pos("ySym1"), Neg("ySym1"), Pos("kAbs2")),
+      Initiator(Neg("kAbs2"))
     ])
   }
 
@@ -188,7 +197,8 @@ def tests() = suite("└ ruler tests") {
     assertEquivalent(list::collect[Constructor] { normalized() }, [
       Duplicator(Neg("zSym5"), Nil(), 1),
       Duplicator(Neg("zDup9"), [Pos("zSym2"), Pos("zSym5")], 0),
-      Abstractor(Pos("zDup9"), Neg("zSym2"), Pos("kAbs8"))
+      Abstractor(Pos("zDup9"), Neg("zSym2"), Pos("kAbs8")),
+      Initiator(Neg("kAbs8"))
     ])
   }
 
@@ -207,7 +217,26 @@ def tests() = suite("└ ruler tests") {
     assertEquivalent(list::collect[Constructor] { normalized() }, [
       Duplicator(Neg("zDup29"), [Pos("zSym22"), Pos("zSym25")], 2),
       Abstractor(Pos("zDup29"), Neg("zSym22"), Pos("kAbs28")),
-      Duplicator(Neg("zSym25"), [], 2)
+      Duplicator(Neg("zSym25"), [], 2),
+      Initiator(Neg("kAbs28"))
+    ])
+  }
+
+  test("normalization: iota iota iota iota") {
+    with confluence
+    val program: Program = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { s"(${iota} (${iota} (${iota} ${iota})))".each }
+      compile!()
+    }
+    val redexes = box { program.redexes() }
+    val (normalized, steps) = normalize(program, redexes, 70)
+    assertEqual(steps, 63)
+    assertEquivalent(list::collect[Constructor] { normalized() }, [
+      Duplicator(Neg("38"), Nil(), 1),
+      Abstractor(Pos("38"), Neg("34"), Pos("36")),   // y => x
+      Abstractor(Pos("34"), Neg("36"), Pos("32_0")), // x =>
+      Initiator(Neg("32_0"))
     ])
   }
 }

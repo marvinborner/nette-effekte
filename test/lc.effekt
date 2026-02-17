@@ -20,7 +20,8 @@ def tests() = suite("└ lc tests") {
       compile!()
     }
     assertEqual(ctors, [
-      Abstractor(Pos("xSym1"), Neg("xSym1"), Pos("kAbs2"))])  // (x => x)_k
+      Abstractor(Pos("xSym1"), Neg("xSym1"), Pos("kAbs2")), // (x => x)_k
+      Initiator(Neg("kAbs2"))])
   }
 
   test("lc compilation: identity annihilation") {
@@ -30,9 +31,10 @@ def tests() = suite("└ lc tests") {
       compile!()
     }
     assertEqual(ctors, [
-      Abstractor(Pos("xSym1"), Neg("xSym1"), Pos("kAbs2")),   // (x => x1)_k
-      Abstractor(Pos("ySym3"), Neg("ySym3"), Pos("kAbs4")),   // (y => y1)_k5
-      Applicator(Neg("kAbs2"), Neg("kAbs4"), Pos("kApp5"))])  // (k2 k5)_k7
+      Abstractor(Pos("xSym1"), Neg("xSym1"), Pos("kAbs2")), // (x => x1)_k
+      Abstractor(Pos("ySym3"), Neg("ySym3"), Pos("kAbs4")), // (y => y1)_k5
+      Applicator(Neg("kAbs2"), Neg("kAbs4"), Pos("kApp5")), // (k2 k5)_k7
+      Initiator(Neg("kApp5"))])
   }
 
   // test("lc compilation: omega") {

@@ -9,6 +9,12 @@ def collapse[A, B, R](port: Either[A, B]) { left: A => R } { right: B => R }: R 
   case Right(b) => right(b)
 }
 
+// println without the ln: only for jsNode, of course
+extern def print(s: String) at io: Unit =
+  jsNode "process.stdout.write(${s})"
+  jsWeb "console.log(${s})"
+  default { println(s) }
+
 def size[A] { s: => Unit / emit[A] }: Int = {
   var size = 0
   try s()
@@ -26,6 +32,12 @@ def choose[A] { stream: () => Unit / emit[A] }: A / fail =
     else resume(())
   }
 
+def init[A](l: List[A]): List[A] / Exception[MissingValue] = l match {
+  case Nil() => do raise(MissingValue(), "Trying to get the beginning of an empty list")
+  case Cons(a, Nil()) => Nil()
+  case Cons(a, as) => Cons(a, as.init)
+}
+
 def exhaustively[R](init: R) { program: () => R / fail }: R =
   var res: R = init
   try {
@@ -37,3 +49,15 @@ def exhaustively[R](init: R) { program: () => R / fail }: R =
   } with fail {
     res
   }
+
+def assertNotThrown[E](ex: on[E]) { body: => Unit / Exception[E] }: Unit / Assertion =
+  ex.default { do assert(false, "Unexpected Exception") } {body}
+
+def assertNoThrow[E] { body: => Unit / Exception[E] }: Unit / Assertion =
+  on[E].default{ do assert(false, "Unexpected Exception") } {body}
+
+def assertThrown[E](ex: on[E]) { body: => Unit / Exception[E] }: Unit / Assertion =
+  do assert(ex.default { true } { body(); false }, "Expected Exception, but exited normally")
+
+def assertThrows[E] { body: => Unit / Exception[E] }: Unit / Assertion =
+  do assert(on[E].default { true } { body(); false }, "Expected Exception, but exited normally")

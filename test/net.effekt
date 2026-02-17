@@ -39,8 +39,8 @@ def tests() = suite("└ net tests") {
       }
       net!()
     }
-    assertEqual(net.agents.clean, [("kAbs2", 0, [2, 3], LightTriangle())])
-    assertEqual(net.wires, [Wire(2, 3)])
+    assertEqual(net.agents.clean, [("kAbs2", 0, [2, 3], LightTriangle()), ("kAbs2", 1, Nil(), LightTriangle())])
+    assertEqual(net.wires, [Wire(2, 3), Wire(0, 1)])
   }
 
   test("netting: working stream splitting") {
@@ -54,9 +54,9 @@ def tests() = suite("└ net tests") {
     }
 
     val agents: List[Agent] = collect { agents { net() } }
-    assertEqual(agents.clean, [("kAbs2", 0, [2, 3], LightTriangle())])
+    assertEqual(agents.clean, [("kAbs2", 0, [2, 3], LightTriangle()), ("kAbs2", 1, Nil(), LightTriangle())])
 
     val wires: List[Wire] = collect { wires { net() } }
-    assertEqual(wires, [Wire(2, 3)])
+    assertEqual(wires, [Wire(2, 3), Wire(0, 1)])
   }
 }

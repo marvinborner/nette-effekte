@@ -70,4 +70,5 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
 
   if (context.bindings.size > 0)
     wrongFormat("term is open: " ++ context.bindings.keys.join(", "))
+  do emit(Initiator(Neg(context.out)))
 }
