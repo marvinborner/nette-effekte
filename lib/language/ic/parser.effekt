@@ -6,13 +6,13 @@ import lib/language/parser
 def parsePos(): Pos / Parser = {
   val name = ident()
   punct("+") 
-  Pos(name)
+  Pos(name.ref)
 }
 
 def parseNeg(): Neg / Parser = {
   val name = ident()
   punct("-") 
-  Neg(name)
+  Neg(name.ref)
 }
 
 def parseAbstractor(): Constructor / Parser = {

@@ -2,15 +2,35 @@ import lib/utils
 import lib/net/net
 
 type Port = String
-record Neg(name: Port)
-record Pos(name: Port)
+type PortRef = Ref[Port]
+record Neg(port: PortRef)
+record Pos(port: PortRef)
 type SuperPort = Either[Neg, Pos]
+
+def name(neg: Neg) = neg.port.get
+def name(pos: Pos) = pos.port.get
+
+def infixEq(a: PortRef, b: PortRef) = a.get == b.get
+def infixEq(a: Neg, b: Neg) = a.port == b.port
+def infixEq(a: Pos, b: Pos) = a.port == b.port
+def infixEq(as: List[Neg], bs: List[Neg]) =
+  as.size == bs.size && as.zip(bs).all { case (a, b) => a == b}
+def infixEq(as: List[Pos], bs: List[Pos]) =
+  as.size == bs.size && as.zip(bs).all { case (a, b) => a == b}
+
+def show(port: Pos) = port.name ++ "+"
+def show(port: Neg) = port.name ++ "-"
 
 def super(port: Neg): SuperPort = Left(port)
 def super(port: Pos): SuperPort = Right(port)
 
-def negate(port: Neg): Pos = Pos(port.name)
-def negate(port: Pos): Neg = Neg(port.name)
+def negate(port: Neg): Pos = Pos(port.port)
+def negate(port: Pos): Neg = Neg(port.port)
+
+def port(port: SuperPort) = port match {
+  case Left(p)  => p.port
+  case Right(p) => p.port
+}
 
 def name(port: SuperPort) = port match {
   case Left(p)  => p.name
@@ -37,11 +57,8 @@ def isPos(port: SuperPort) = port match {
   case Right(p) => true
 }
 
-def map(port: Pos) { f: Port => Port }: Pos = Pos(port.name.f)
-def map(port: Neg) { f: Port => Port }: Neg = Neg(port.name.f)
-
-// def negate(pol: Polarity) = pol match { case Pos() => Neg(); case Neg() => Pos() }
-// def negate(port: Port) = port.map { pol => pol.negate }
+def map(port: Pos) { f: PortRef => PortRef }: Pos = Pos(port.port.f)
+def map(port: Neg) { f: PortRef => PortRef }: Neg = Neg(port.port.f)
 
 type Constructor {
   Initiator(k: Neg);
@@ -50,10 +67,31 @@ type Constructor {
   Duplicator(o: Neg, ins: List[Pos], label: Int);
   Superposer(i: Pos, out: List[Neg], label: Int);
 }
-// interface ConstructorF[A] {
-  // def zeta(pp: Port, aux: List[Port]): A
-  // def delta(pp: Port, aux: List[Port], label: Int): A
-// }
+
+def show(ctor: Constructor) = {
+  def pretty(many: List[Pos]) = many.map { p => p.show() }.join(", ")
+  def pretty(many: List[Neg]) = many.map { p => p.show() }.join(", ")
+  ctor match {
+    case Initiator(k)              => s"ι(${k.show})"
+    case Abstractor(x, b, k)       => s"λ(${x.show}, ${b.show}, ${k.show})"
+    case Applicator(f, a, k)       => s"@(${f.show}, ${a.show}, ${k.show})"
+    case Duplicator(o, ins, label) => s"δ(${o.show}, ${ins.pretty})(${label.show})"
+    case Superposer(i, out, label) => s"σ(${i.show}, ${out.pretty})(${label.show})"
+  }
+}
+def show(ctors: List[Constructor]) =
+  "[" ++ ctors.map { ctor => ctor.show() }.join(", ") ++ "]"
+
+def infixEq(ctor1: Constructor, ctor2: Constructor) = (ctor1, ctor2) match {
+  case (Initiator(k1),                Initiator(k2)) => k1 == k2
+  case (Abstractor(x1, b1, k1),       Abstractor(x2, b2, k2)) => x1 == x2 && b1 == b2 && k1 == k2
+  case (Applicator(f1, a1, k1),       Applicator(f2, a2, k2)) => f1 == f2 && a1 == a2 && k1 == k2
+  case (Duplicator(o1, ins1, label1), Duplicator(o2, ins2, label2)) => o1 == o2 && ins1 == ins2 && label1 == label2
+  case (Superposer(i1, out1, label1), Superposer(i2, out2, label2)) => i1 == i2 && out1 == out2 && label1 == label2
+  case _ => false
+}
+def infixEq(as: List[Constructor], bs: List[Constructor]) =
+  as.size == bs.size && as.zip(bs).all { case (a, b) => a == b}
 
 def canInteract(ctor: Constructor) = ctor match{
   case Initiator(k) => false
@@ -64,7 +102,14 @@ type Program = => Unit / emit[Constructor] at {}
 def empty(): Program = box {}
 
 record Redex(left: Constructor, right: Constructor) // pp: (-, +)
-type RedexBag = => Unit / emit[Redex] at {}
+type RedexBag = => Unit / emit[Redex] at {io, global} // finding redexes requires dereferencing Refs
+
+def show(redex: Redex) = s"(${redex.left.show} >< ${redex.right.show})"
+def show(redexes: List[Redex]) =
+  "[" ++ redexes.map { redex => redex.show() }.join(", ") ++ "]"
+def infixEq(a: Redex, b: Redex) = a.left == b.left && a.right == b.right
+def infixEq(as: List[Redex], bs: List[Redex]) = 
+  as.size == bs.size && as.zip(bs).all { case (a, b) => a == b}
 
 def pp(ctor: Constructor): SuperPort = ctor match {
   case Initiator(k)              => k.super
@@ -84,7 +129,7 @@ def aux(ctor: Constructor): List[SuperPort] = ctor match {
 
 def ports(ctor: Constructor): List[SuperPort] = Cons(ctor.pp, ctor.aux)
 
-def map(ctor: Constructor) { func: SuperPort => Port }: Constructor = ctor match {
+def map(ctor: Constructor) { func: SuperPort => PortRef }: Constructor = ctor match {
   case Initiator(k)              => Initiator(Neg(k.super.func))
   case Abstractor(x, b, k)       => Abstractor(Pos(x.super.func), Neg(b.super.func), Pos(k.super.func))
   case Applicator(f, a, k)       => Applicator(Neg(f.super.func), Neg(a.super.func), Pos(k.super.func))
@@ -92,39 +137,12 @@ def map(ctor: Constructor) { func: SuperPort => Port }: Constructor = ctor match
   case Superposer(o, ins, label) => Superposer(Pos(o.super.func), ins.map { s => Neg(s.super.func) }, label)
 }
 
-// def map(ctor: Constructor) { func: Port => Port }: Constructor = ctor match {
-//   case Abstractor(x, b, k)       => Abstractor(x.map { p => p.func }, b.map { p => p.func }, k.map { p => p.func })
-//   case Applicator(f, a, k)       => Applicator(f.map { p => p.func }, a.map { p => p.func }, k.map { p => p.func })
-//   case Duplicator(o, ins, label) => Duplicator(o.map { p => p.func }, ins.map { s => s.map { p => p.func }}, label)
-//   case Superposer(i, out, label) => Superposer(i.map { p => p.func }, out.map { s => s.map { p => p.func }}, label)
-// }
-
 def kind(ctor: Constructor): Kind = ctor match {
   case Initiator(k)              => LightTriangle()
   case Abstractor(x, b, k)       => LightTriangle()
   case Applicator(f, a, k)       => LightTriangle()
   case Duplicator(o, ins, label) => DarkTriangle()
   case Superposer(i, out, label) => DarkTriangle()
-}
-
-// def show(pol: Polarity) = pol match {
-//   case Pos() => "+"
-//   case Neg() => "-"
-// }
-
-def show(port: Pos) = port.name ++ "+"
-def show(port: Neg) = port.name ++ "-"
-
-def show(ctor: Constructor) = {
-  def pretty(many: List[Pos]) = many.map { p => p.show() }.join(", ")
-  def pretty(many: List[Neg]) = many.map { p => p.show() }.join(", ")
-  ctor match {
-    case Initiator(k)              => s"ι(${k.show})"
-    case Abstractor(x, b, k)       => s"λ(${x.show}, ${b.show}, ${k.show})"
-    case Applicator(f, a, k)       => s"@(${f.show}, ${a.show}, ${k.show})"
-    case Duplicator(o, ins, label) => s"δ(${o.show}, ${ins.pretty})(${label.show})"
-    case Superposer(i, out, label) => s"σ(${i.show}, ${out.pretty})(${label.show})"
-  }
 }
 
 def show(prog: Program) = {

@@ -7,6 +7,8 @@ import lib/language/ic/term
 
 type StepMode { Deterministic(); NonDeterministic(); }
 
+record Substitution(from: SuperPort, to: SuperPort)
+
 effect fresh(): Int
 
 def freshener[R] { prog: => R / fresh }: R = {
@@ -18,10 +20,14 @@ def freshener[R] { prog: => R / fresh }: R = {
   }
 }
 
-interface Rewrite {
+interface Interact {
   def annihilate(ctor: Constructor): Unit
   def construct(ctor: Constructor): Unit
-  def substitute(from: SuperPort, to: SuperPort): Unit
+  def substitute(substitution: Substitution): Unit
+
+  def potential(port: PortRef): Unit
+  def target(from: String): SuperPort
+  def wire(from: Neg, to: Pos): Unit
 }
 
 def redexes(program: Program): Unit / emit[Redex] =
@@ -31,44 +37,32 @@ def redexes(program: Program): Unit / emit[Redex] =
     if (ctorA.canInteract && ctorB.canInteract && ctorA.pp.name == ctorB.pp.name)
       do emit(Redex(ctorA, ctorB))
 
-def apply(port: SuperPort, substitutions: Ref[Map[SuperPort, SuperPort]]): SuperPort =
-  if (substitutions.get.contains(port)) {
-    val newPort = substitutions.get.getOrElse(port) { panic("wtf") }
-    substitutions.map { m => m.delete(port) }
-    newPort
-  } else port
+// TODO: this is horribly inefficient for now, but could be very efficient
+def redexes(program: Program, potential: List[PortRef]): Unit / emit[Redex] =
+  with val ref = potential.foreach
+  val port = ref.get
+  with val ctorA = for { program() }
+  with val ctorB = for { program() }
+  if (ctorA.term::pp is Left(Neg(_)) and ctorB.term::pp is Right(Pos(_)))
+    if (ctorA.canInteract && ctorB.canInteract && ctorA.pp.name == port && ctorB.pp.name == port)
+      do emit(Redex(ctorA, ctorB))
 
-// Net...[x^p/y^p]...[z^p/x^p]... --> Net...[z^p/y^p]...
-// Net...[z^p/x^p]...[x^p/y^p]... --> Net...[z^p/y^p]...
-def apply(substitutees: Ref[Map[SuperPort, SuperPort]]) = {
-  def go(): Unit = {
-    var changed = false
-    substitutees.get.toList.foreach { (t){label} =>
-      val (to, from) = t
-      if (substitutees.get.contains(from)) {
-        changed = true
-        val newFrom = substitutees.get.getOrElse(from) { panic("wtf") }
-        substitutees.map { m => m.put(to, newFrom) }
-        substitutees.map { m => m.delete(from) }
-        label.break()
-      }
-    }
-    if (changed) go()
-  }
-  go()
-}
+def freshWires(n: Int): (List[Neg], List[Pos]) / { Interact, fresh } = n.list::build { i =>
+  val x = do fresh().show
+  val from = Neg(x.ref)
+  val to = Pos(x.ref)
+  do wire(from, to)
+  (from, to)
+}.unzip
 
-/// applies one-shot substitutions on constructor
-def apply(ctor: Constructor, substitutions: Ref[Map[SuperPort, SuperPort]]): Constructor =
-  ctor.map { p => p.apply(substitutions).name }
-
-def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
-  // @(f-, a-, k+) <> λ(x+, b-, f+) ~> [x+/a+][b-/k-]
+def interact(redex: Redex): Unit / { Interact, fresh } = redex match {
+  // @(f-, a-, k+) <> λ(x+, b-, f+) ~> [a-/x-][b-/k-]
   // beta-reduction: APP-LAM
   case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Abstractor(Pos(x), Neg(b), Pos(f2))) and f1 == f2 => {
-    // do substitute(Pos(x).super, Pos(a).super)
-    do substitute(Neg(a).super, Neg(x).super)
-    do substitute(Neg(b).super, Neg(k).super)
+    do substitute(Substitution(Neg(a).super, do target(Pos(x).show)))
+    do substitute(Substitution(Neg(b).super, do target(Pos(k).show)))
+    do potential(a) // TODO: theoretically, we'd only need to somehow check if Neg(a) is at a principal port
+    do potential(b)
   }
 
   // δ(k-, k1+, ..., kn+) <> λ(x+, b-, k+) ~> σ(x+, x1-, ..., xn-), δ(b-, b1+, ..., bn+),
@@ -77,13 +71,16 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
   case Redex(Duplicator(Neg(k1), ks, l), Abstractor(Pos(x), Neg(b), Pos(k2))) and k1 == k2 => {
     with on[OutOfBounds].panic() // can not happen
     val n = ks.size
-    val xs = n.list::build { i => do fresh().show }
-    val bs = n.list::build { i => do fresh().show }
-    do construct(Superposer(Pos(x), xs.map { xi => Neg(xi) }, l))
-    do construct(Duplicator(Neg(b), bs.map { bi => Pos(bi) }, l))
+    val (xsNeg, xsPos) = n.freshWires()
+    val (bsNeg, bsPos) = n.freshWires()
+    do construct(Superposer(Pos(x), xsNeg, l))
+    do construct(Duplicator(Neg(b), bsPos, l))
     0.each(n) { i =>
-      do construct(Abstractor(Pos(xs.get(i)), Neg(bs.get(i)), ks.get(i)))
+      do construct(Abstractor(xsPos.get(i), bsNeg.get(i), ks.get(i)))
     }
+    do potential(x)
+    do potential(b)
+    ks.foreach { k => do potential(k.port) }
   }
 
   // @(f-, a-, k+) <> σ(f+, f1-, ..., fn-) ~> σ(k+, k1-, ..., kn-), δ(a-, a1+, ..., an+),
@@ -92,13 +89,16 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
   case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Superposer(Pos(f2), fs, l)) and f1 == f2 => {
     with on[OutOfBounds].panic() // can not happen
     val n = fs.size
-    val ks = n.list::build { i => do fresh().show }
-    val as = n.list::build { i => do fresh().show }
-    do construct(Superposer(Pos(k), ks.map { ki => Neg(ki) }, l))
-    do construct(Duplicator(Neg(a), as.map { ai => Pos(ai) }, l))
+    val (ksNeg, ksPos) = n.freshWires()
+    val (asNeg, asPos) = n.freshWires()
+    do construct(Superposer(Pos(k), ksNeg, l))
+    do construct(Duplicator(Neg(a), asPos, l))
     0.each(n) { i =>
-      do construct(Applicator(fs.get(i), Neg(as.get(i)), Pos(ks.get(i))))
+      do construct(Applicator(fs.get(i), asNeg.get(i), ksPos.get(i)))
     }
+    fs.foreach { f => do potential(f.port) }
+    do potential(a)
+    do potential(k)
   }
 
   // δ(k-) <> σ(k+, i1-, ..., im-) ~> δ(i1-), ..., δ(in-)
@@ -106,6 +106,7 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
   case Redex(Duplicator(Neg(k1), Nil(), l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 => {
     ins.foreach { i =>
       do construct(Duplicator(i, Nil(), l1))
+      do potential(i.port)
     }
   }
 
@@ -114,6 +115,7 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
   case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), Nil(), l2)) and k1 == k2 => {
     out.foreach { o =>
       do construct(Superposer(o, Nil(), l2))
+      do potential(o.port)
     }
   }
 
@@ -121,8 +123,9 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
   // symmetric duplicator annihilation: DUP-SUP
   case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 and l1 == l2 and out.size == ins.size => {
     list::zip(out, ins).foreach { case (o, i) =>
-      do substitute(i.super, o.negate.super)
-      // do substitute(o.super, i.negate.super)
+      // TODO: pre-substitute
+      do substitute(Substitution(i.super, do target(o.show)))
+      do potential(i.port)
     }
   }
 
@@ -133,15 +136,20 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
     with on[OutOfBounds].panic() // can not happen
     val n = out.size
     val m = ins.size
-    val fresh = max(n, m).list::build { _ => do fresh().show  }
-    0.each(m) { i => // duplicators
-      val outM = n.list::build { j => Pos(s"${fresh.get(i)}_${j.show}") }
-      do construct(Duplicator(ins.get(i), outM, l1))
+    val d = max(n, m)
+
+    0.each(d) { i =>
+      val (insN, outM) = d.freshWires() // TODO: this constructs additional wires in unbalanced dups
+      if (i < m) {
+        do construct(Duplicator(ins.get(i), outM.take(m), l1))
+      }
+      if (i < n) {
+        do construct(Superposer(out.get(i), insN.take(n), l2))
+      }
     }
-    0.each(n) { i => // superposers
-      val insN = m.list::build { j => Neg(s"${fresh.get(j)}_${i.show}") }
-      do construct(Superposer(out.get(i), insN, l2))
-    }
+
+    ins.foreach { i => do potential(i.port) }
+    out.foreach { o => do potential(o.port) }
   }
   
   case _ => {
@@ -150,43 +158,92 @@ def interact(redex: Redex): Unit / { Rewrite, fresh } = redex match {
   }
 }
 
-def step_(program: Program, redex: Redex): Unit / { emit[Constructor], fresh } = {
+/// build up a static, doubly linked relationship between positive and negative ports
+/// the relationship is from SuperPort.show to SuperPort
+def wiring(program: Program): Map[String, SuperPort] = {
+  var wiring: Map[String, SuperPort] = emptyGeneric() // pname -> target port
+  var map: Map[String, SuperPort] = emptyGeneric() // name -> own port
+
+  def link(port: SuperPort): Unit = {
+    map.get(port.name) match {
+      case Some(target) =>
+        wiring = wiring.put(port.show, target).put(target.show, port)
+      case None() =>
+        map = map.put(port.name, port)
+    }
+  }
+
+  try program()
+  with emit[Constructor] { ctor =>
+    ctor.ports.foreach { port => link(port) }
+    resume(())
+  }
+  wiring
+}
+
+def substitute(substitution: Substitution, wiring: Ref[Map[String, SuperPort]]) = {
+  val Substitution(from, to) = substitution
+  println(s"[${from.show}/${to.show}]")
+  // val x = to.port.get
+  to.port.set(from.port.get)
+  // from.port.set(x)
+  wiring.map { w => w.put(to.show, from).put(from.show, to) }
+}
+
+def step_(program: Program, redex: Redex): List[PortRef] / { emit[Constructor], fresh } = {
   val annihilated = ref[Set[Constructor]](emptyGeneric())
-  val constructed = ref[Set[Constructor]](emptyGeneric())
-  val substitutions = ref[Map[SuperPort, SuperPort]](emptyGeneric())
+  val constructed = ref[List[Constructor]](Nil())
+  val potential = ref[List[PortRef]](Nil())
+  val wiring = ref(program.wiring())
+
+  println(program.show)
 
   try {
     redex.interact()
     do annihilate(redex.left)
     do annihilate(redex.right)
-  } with Rewrite {
+  } with Interact {
     def annihilate(ctor) = resume(annihilated.map { s => s.insert(ctor) })
     def construct(ctor) = resume(do emit(ctor))
-    def substitute(from, to) = resume(substitutions.map { m => m.put(to, from) })
+    def substitute(substitution) = resume(substitution.substitute(wiring))
+    def potential(port) = resume(potential.map { l => Cons(port, l) })
+    def target(from) = resume(wiring.get.getOrElse(from) { panic(s"invalid target: ${from.show}") })
+    def wire(from, to) = resume(wiring.map { w => w.put(from.show, to.super).put(to.show, from.super) })
   }
 
-  // print("\nsubst before: ")
-  // substitutions.get.foreach { (to, from) => print("${from.show}/${to.show}, ") }
-  substitutions.apply()
-  // print("\n subst after: ")
-  // substitutions.get.foreach { (to, from) => print("${from.show}/${to.show}, ") }
-  // println("\n")
-
+  println("\nemitting:")
   for { program() } { ctor =>
-    if (not(annihilated.get.contains(ctor)))
-      do emit(ctor.apply(substitutions))
+    if (not(annihilated.get.contains(ctor))) {
+      println(ctor.show)
+      do emit(ctor)
+    }
   }
+
+  potential.get
 }
 
-def choose(mode: StepMode, redexes: RedexBag): Redex / fail = mode match {
-  case Deterministic()    => first[Redex] { redexes() }
-  case NonDeterministic() => choose { redexes() }
+def pop[A] { stream: => Unit / emit[A] }: A / { fail, emit[A] } = {
+  try {
+    def body(): Option[A] = { stream(); None() }
+    body()
+  } with emit[A] { a =>
+    val next = resume(())
+    if (next is Some(a)) do emit(a)
+    Some(a)
+  }.getOrFail
 }
 
-// TODO: emit new redexes directly during interactions (wires get reconnected, check if same port)
+def pop(mode: StepMode, redexes: RedexBag): Redex / { fail, emit[Redex] } = mode match {
+  case Deterministic()    => pop[Redex] { redexes() }
+  case NonDeterministic() => choose { redexes() } // TODO
+}
+
 def step(program: Program, mode: StepMode, redexes: RedexBag): Unit / { emit[Constructor], emit[Redex], fresh, fail } = {
-  val redex = choose(mode, redexes)
-  val program: Program = collect { program.step_(redex) }
+  //val redex = pop(mode, redexes) // TODO!
+  val redex = pop(NonDeterministic(), redexes)
+  println(s"\n=== REDEX: ${redex.show} ===")
+  val tup: (List[PortRef], Program) = returning::collect { program.step_(redex) }
+  val (potential, program) = tup
 
   // println(list::collect[Constructor] { program() }.show { ctor => ctor.show })
 
@@ -195,10 +252,12 @@ def step(program: Program, mode: StepMode, redexes: RedexBag): Unit / { emit[Con
   val negPorts = collect[Constructor] { program() }.flatMap { ctor => ctor.ports }.filter { p => p.isNeg }.map { p => p.name }.set::fromListGeneric
   if (posPorts.difference(negPorts).size != 0) {
     println("\n!!! FATAL " ++ posPorts.toList.show ++ " vs " ++ negPorts.toList.show)
-    println("\nREDEX: " ++ redex.left.show ++ " - " ++ redex.right.show)
+    // println("\nREDEX: " ++ redex.left.show ++ " - " ++ redex.right.show)
     println(posPorts.difference(negPorts).toList.show)
   } else {
-    program.redexes() // TODO: this could be an expensive call, we should not do it at every step.
+    // println(potential)
+    //program.redexes(potential)
+    program.redexes()
     program()
   }
 }
@@ -212,7 +271,7 @@ def normalize(program: Program, redexes: RedexBag, max: Int): (Program, Int) = {
   with exhaustively((empty(), 0))
   count = count + 1
   state = returning::collect {
-    collect { state.first.step(NonDeterministic(), state.second) } }
+    collect { state.first.step(Deterministic(), state.second) } }
   if (count > max) do fail()
   (state.first, count)
 }

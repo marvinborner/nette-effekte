@@ -33,19 +33,19 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
     duplicity match {
       case 0 => 
         val pk = do port(x ++ "Era")
-        do emit(Duplicator(Neg(pk), [], label))
+        do emit(Duplicator(Neg(pk.ref), [], label))
         pk
       case 1 => bound.head
       case n => {
         val pk = do port(x ++ "Dup")
-        do emit(Duplicator(Neg(pk), bound.map { bind => Pos(bind) }, label))
+        do emit(Duplicator(Neg(pk.ref), bound.map { bind => Pos(bind.ref) }, label))
         pk
       }
     }
   }
 
   val context = try term.cata
-  with TermF[Int => Context / { port, emit[Constructor] } at {io}] {
+  with TermF[Int => Context / { port, emit[Constructor] } at {io, global}] {
     def sym(x) = resume(box { _ =>
       val px = do port(x ++ "Sym")
       Context(px, singletonGeneric(x, [px]))
@@ -55,7 +55,7 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
       val Context(pb, bb) = b(label)
       val pk = do port("kAbs")
       val px = bb.bind(label, x)
-      do emit(Abstractor(Pos(px), Neg(pb), Pos(pk)))
+      do emit(Abstractor(Pos(px.ref), Neg(pb.ref), Pos(pk.ref)))
       Context(pk, bb.delete(x))
     })
 
@@ -63,12 +63,12 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
       val Context(pf, bf) = f(label)
       val Context(pa, ba) = a(label + 1)
       val pk = do port("kApp")
-      do emit(Applicator(Neg(pf), Neg(pa), Pos(pk)))
+      do emit(Applicator(Neg(pf.ref), Neg(pa.ref), Pos(pk.ref)))
       Context(pk, bf.union(ba, box { (a, b) => a.genericCompare(b) }) { (k, a, b) => a.append(b) })
     })
   }(0)
 
   if (context.bindings.size > 0)
     wrongFormat("term is open: " ++ context.bindings.keys.join(", "))
-  do emit(Initiator(Neg(context.out)))
+  do emit(Initiator(Neg(context.out.ref)))
 }
