@@ -25,7 +25,7 @@ interface Interact {
   def construct(ctor: Constructor): Unit
   def rewire(rewiring: Map[String, Substitution]): Unit
 
-  def potential(port: PortRef): Unit
+  def potential(port: Port): Unit
   def target(from: String): SuperPort
   def wire(from: Neg, to: Pos): Unit
 }
@@ -38,9 +38,8 @@ def redexes(program: Program): Unit / emit[Redex] =
       do emit(Redex(ctorA, ctorB))
 
 // TODO: this is horribly inefficient for now, but could be very efficient
-def redexes(program: Program, potential: List[PortRef]): Unit / emit[Redex] =
-  with val ref = potential.foreach
-  val port = ref.get
+def redexes(program: Program, potential: List[Port]): Unit / emit[Redex] =
+  with val port = potential.foreach
   with val ctorA = for { program() }
   with val ctorB = for { program() }
   if (ctorA.term::pp is Left(Neg(_)) and ctorB.term::pp is Right(Pos(_)))
@@ -63,8 +62,8 @@ def interact(redex: Redex): Unit / { Interact, fresh } = redex match {
       (Neg(a).show, Substitution(Neg(a).super, do target(Pos(x).show))),
       (Neg(b).show, Substitution(Neg(b).super, do target(Pos(k).show)))
     ].map::fromListGeneric)
-    do potential(a) // TODO: theoretically, we'd only need to somehow check if Neg(a) is at a principal port
-    do potential(b)
+    do potential(a.get) // TODO: theoretically, we'd only need to somehow check if Neg(a) is at a principal port
+    do potential(b.get)
   }
 
   // δ(k-, k1+, ..., kn+) <> λ(x+, b-, k+) ~> σ(x+, x1-, ..., xn-), δ(b-, b1+, ..., bn+),
@@ -80,9 +79,9 @@ def interact(redex: Redex): Unit / { Interact, fresh } = redex match {
     0.each(n) { i =>
       do construct(Abstractor(xsPos.get(i), bsNeg.get(i), ks.get(i)))
     }
-    do potential(x)
-    do potential(b)
-    ks.foreach { k => do potential(k.port) }
+    do potential(x.get)
+    do potential(b.get)
+    ks.foreach { k => do potential(k.port.get) }
   }
 
   // @(f-, a-, k+) <> σ(f+, f1-, ..., fn-) ~> σ(k+, k1-, ..., kn-), δ(a-, a1+, ..., an+),
@@ -98,9 +97,9 @@ def interact(redex: Redex): Unit / { Interact, fresh } = redex match {
     0.each(n) { i =>
       do construct(Applicator(fs.get(i), asNeg.get(i), ksPos.get(i)))
     }
-    fs.foreach { f => do potential(f.port) }
-    do potential(a)
-    do potential(k)
+    fs.foreach { f => do potential(f.port.get) }
+    do potential(a.get)
+    do potential(k.get)
   }
 
   // δ(k-) <> σ(k+, i1-, ..., im-) ~> δ(i1-), ..., δ(in-)
@@ -108,7 +107,7 @@ def interact(redex: Redex): Unit / { Interact, fresh } = redex match {
   case Redex(Duplicator(Neg(k1), Nil(), l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 => {
     ins.foreach { i =>
       do construct(Duplicator(i, Nil(), l1))
-      do potential(i.port)
+      do potential(i.port.get)
     }
   }
 
@@ -117,7 +116,7 @@ def interact(redex: Redex): Unit / { Interact, fresh } = redex match {
   case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), Nil(), l2)) and k1 == k2 => {
     out.foreach { o =>
       do construct(Superposer(o, Nil(), l2))
-      do potential(o.port)
+      do potential(o.port.get)
     }
   }
 
@@ -125,10 +124,10 @@ def interact(redex: Redex): Unit / { Interact, fresh } = redex match {
   // symmetric duplicator annihilation: DUP-SUP
   case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 and l1 == l2 and out.size == ins.size => {
     val rewiring = out.zip(ins).map { case (o, i) =>
-      do potential(i.port)
       (i.show, Substitution(i.super, do target(o.show)))
     }.map::fromListGeneric
     do rewire(rewiring)
+    ins.foreach { i => do potential(i.port.get) } // REMEMBER: potential must always happen after rewiring
   }
 
   // δ(k-, o1+, ..., on+) <> σ(k+, i1-, ..., im-) ~> δ(i1-, o11+, ..., o1n+), .m., δ(im-, om1+, ..., omn+),
@@ -150,8 +149,8 @@ def interact(redex: Redex): Unit / { Interact, fresh } = redex match {
       }
     }
 
-    ins.foreach { i => do potential(i.port) }
-    out.foreach { o => do potential(o.port) }
+    ins.foreach { i => do potential(i.port.get) }
+    out.foreach { o => do potential(o.port.get) }
   }
   
   case _ => {
@@ -208,10 +207,10 @@ def rewire(wiring: Ref[Map[String, SuperPort]], _rewiring: Map[String, Substitut
   }
 }
 
-def step_(program: Program, redex: Redex): List[PortRef] / { emit[Constructor], fresh } = {
+def step_(program: Program, redex: Redex): List[Port] / { emit[Constructor], fresh } = {
   val annihilated = ref[Set[Constructor]](emptyGeneric())
   val constructed = ref[List[Constructor]](Nil())
-  val potential = ref[List[PortRef]](Nil())
+  val potential = ref[Set[Port]](emptyGeneric())
   val wiring = ref(program.wiring())
 
   try {
@@ -221,7 +220,7 @@ def step_(program: Program, redex: Redex): List[PortRef] / { emit[Constructor], 
   } with Interact {
     def annihilate(ctor) = resume(annihilated.map { s => s.insert(ctor) })
     def construct(ctor) = resume(do emit(ctor))
-    def potential(port) = resume(potential.map { l => Cons(port, l) })
+    def potential(port) = resume(potential.map { s => s.insert(port) })
     def target(from) = resume(wiring.get.getOrElse(from) { panic(s"invalid target: ${from.show}") })
     def wire(from, to) = resume(wiring.map { w => w.put(from.show, to.super).put(to.show, from.super) })
     def rewire(rewiring) = resume(wiring.rewire(rewiring))
@@ -233,7 +232,7 @@ def step_(program: Program, redex: Redex): List[PortRef] / { emit[Constructor], 
     }
   }
 
-  potential.get
+  potential.get.toList
 }
 
 def pop[A] { stream: => Unit / emit[A] }: A / { fail, emit[A] } = {
@@ -253,10 +252,10 @@ def pop(mode: StepMode, redexes: RedexBag): Redex / { fail, emit[Redex] } = mode
 }
 
 def step(program: Program, mode: StepMode, redexes: RedexBag): Unit / { emit[Constructor], emit[Redex], fresh, fail } = {
-  //val redex = pop(mode, redexes) // TODO!
-  val redex = pop(NonDeterministic(), redexes)
+  val redex = pop(mode, redexes) // TODO!
+  // val redex = pop(NonDeterministic(), redexes)
   // println(s"\n=== REDEX: ${redex.show} ===")
-  val tup: (List[PortRef], Program) = returning::collect { program.step_(redex) }
+  val tup: (List[Port], Program) = returning::collect { program.step_(redex) }
   val (potential, program) = tup
 
   // println(list::collect[Constructor] { program() }.show { ctor => ctor.show })
@@ -269,9 +268,7 @@ def step(program: Program, mode: StepMode, redexes: RedexBag): Unit / { emit[Con
     // println("\nREDEX: " ++ redex.left.show ++ " - " ++ redex.right.show)
     println(posPorts.difference(negPorts).toList.show)
   } else {
-    // println(potential)
-    //program.redexes(potential)
-    program.redexes()
+    program.redexes(potential)
     program()
   }
 }
