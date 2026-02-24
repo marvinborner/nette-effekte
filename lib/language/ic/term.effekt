@@ -82,6 +82,15 @@ def show(ctor: Constructor) = {
 def show(ctors: List[Constructor]) =
   "[" ++ ctors.map { ctor => ctor.show() }.join(", ") ++ "]"
 
+def sameKind(ctor1: Constructor, ctor2: Constructor) = (ctor1, ctor2) match {
+  case (Initiator(k1),                Initiator(k2)) => true
+  case (Abstractor(x1, b1, k1),       Abstractor(x2, b2, k2)) => true
+  case (Applicator(f1, a1, k1),       Applicator(f2, a2, k2)) => true
+  case (Duplicator(o1, ins1, label1), Duplicator(o2, ins2, label2)) => label1 == label2
+  case (Superposer(i1, out1, label1), Superposer(i2, out2, label2)) => label1 == label2
+  case _ => false
+}
+
 def infixEq(ctor1: Constructor, ctor2: Constructor) = (ctor1, ctor2) match {
   case (Initiator(k1),                Initiator(k2)) => k1 == k2
   case (Abstractor(x1, b1, k1),       Abstractor(x2, b2, k2)) => x1 == x2 && b1 == b2 && k1 == k2
