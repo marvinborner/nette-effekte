@@ -235,25 +235,13 @@ def step_(program: Program, redex: Redex): List[Port] / { emit[Constructor], fre
   potential.get.toList
 }
 
-def pop[A] { stream: => Unit / emit[A] }: A / { fail, emit[A] } = {
-  try {
-    def body(): Option[A] = { stream(); None() }
-    body()
-  } with emit[A] { a =>
-    val next = resume(())
-    if (next is Some(a)) do emit(a)
-    Some(a)
-  }.getOrFail
-}
-
 def pop(mode: StepMode, redexes: RedexBag): Redex / { fail, emit[Redex] } = mode match {
   case Deterministic()    => pop[Redex] { redexes() }
-  case NonDeterministic() => choose { redexes() } // TODO
+  case NonDeterministic() => popRandom[Redex] { redexes() }
 }
 
 def step(program: Program, mode: StepMode, redexes: RedexBag): Unit / { emit[Constructor], emit[Redex], fresh, fail } = {
-  val redex = pop(mode, redexes) // TODO!
-  // val redex = pop(NonDeterministic(), redexes)
+  val redex = pop(mode, redexes)
   // println(s"\n=== REDEX: ${redex.show} ===")
   val tup: (List[Port], Program) = returning::collect { program.step_(redex) }
   val (potential, program) = tup
@@ -282,7 +270,7 @@ def normalize(program: Program, redexes: RedexBag, max: Int): (Program, Int) = {
   with exhaustively((empty(), 0))
   count = count + 1
   state = returning::collect {
-    collect { state.first.step(Deterministic(), state.second) } }
+    collect { state.first.step(NonDeterministic(), state.second) } }
   if (count > max) do fail()
   (state.first, count)
 }

@@ -22,15 +22,34 @@ def size[A] { s: => Unit / emit[A] }: Int = {
   size
 }
 
-def choose[A] { stream: () => Unit / emit[A] }: A / fail =
+def pop[A] { stream: => Unit / emit[A] }: A / { fail, emit[A] } =
   try {
-    def body(): A = { stream(); first { stream() } }
+    def body(): Option[A] = { stream(); None() }
     body()
-  }
-  with emit[A] { a =>
-    if (random() > 0.5) a
-    else resume(())
-  }
+  } with emit[A] { a =>
+    val next = resume(())
+    if (next is Some(a)) do emit(a)
+    Some(a)
+  }.getOrFail
+
+def popRandom[A] { stream: => Unit / emit[A] }: A / { fail, emit[A] } =
+  try {
+    def body(): Option[A] = { stream(); None() }
+    body()
+  } with emit[A] { a =>
+    val next = resume(())
+    next match {
+      case None() => Some(a)
+      case Some(b) =>
+        if (random() > 0.5) {
+          do emit(b)
+          Some(a)
+        } else {
+          do emit(a)
+          Some(b)
+        }
+    }
+  }.getOrFail
 
 def init[A](l: List[A]): List[A] / Exception[MissingValue] = l match {
   case Nil() => do raise(MissingValue(), "Trying to get the beginning of an empty list")
