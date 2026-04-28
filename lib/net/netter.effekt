@@ -10,7 +10,7 @@ def circularLayout(k: Int): Vector = {
   Vector((k.mod(3) + 1).toDouble * scale, (k.mod(3) + 1).toDouble * scale).rotate(k.toDouble)
 }
 
-def net!(): Unit / { read[Constructor], NetStream } = {
+def net!(): Unit / { next[Constructor], NetStream } = {
   var ids: Label = 0
   var map: Map[String, Label] = emptyGeneric()
 
@@ -31,7 +31,7 @@ def net!(): Unit / { read[Constructor], NetStream } = {
   var k = 0
 
   with loop
-  val ctor = do read()
+  val ctor = do next()
   val pp_ = ctor.pp.uniqueMatch()
   val aux_ = ctor.aux.map { p => p.uniqueMatch() }
   do emit(Agent(ctor.pp.name, pp_, aux_, ctor.kind, circularLayout(k)))

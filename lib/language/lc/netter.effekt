@@ -20,11 +20,11 @@ def plumbing { prog: => Unit / port } = {
   }
 }
 
-def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
+def net!(): Unit / { Exception[WrongFormat], next[Term], emit[Constructor] } = {
   with plumbing
   with loop
 
-  val term = do read[Term]()
+  val term = do next[Term]()
   // println("term: '${term.show}'")
 
   def bind(bindings: Map[String, List[Port]], x: String): Label = {
@@ -33,7 +33,7 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
 
     val duplicity = bound.size
     duplicity match {
-      case 0 => 
+      case 0 =>
         val pk = do port(x ++ "Era")
         do emit(Constructor(Port(pk, Neg()), [], DarkTriangle()))
         pk

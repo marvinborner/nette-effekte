@@ -89,16 +89,16 @@ val icRules = [
       })),
     ] else [
       ManyFinally(LeftBiased(box { (i, ai) =>
-        val ais = m.list::build { i => Port("${ai.name}_${i.show}", Pos()) }.reverse
+        val ais = m.list::build { i => Port(s"${ai.name}_${i.show}", Pos()) }.reverse
         do constructor(ai, ais, DarkTriangle()) // DUP
       }), Symmetric(box { (i, k, f) =>
-        val ks = m.list::build { i => Port("${k.name}_${i.show}", Neg()) }.reverse
+        val ks = m.list::build { i => Port(s"${k.name}_${i.show}", Neg()) }.reverse
         do constructor(k, ks, DarkTriangle()) // SUP
       })),
       Many(RightBiased(box { (i, fj) => if (i <= m) {
         val k = do left(n - 1)
-        val ki = Port("${k.name}_${i.show}", Pos())
-        val ais = (n - 1).list::build { j => Port("${do left(j).name}_${i.show}", Neg()) }
+        val ki = Port(s"${k.name}_${i.show}", Pos())
+        val ais = (n - 1).list::build { j => Port(s"${do left(j).name}_${i.show}", Neg()) }
         do constructor(fj, ais.append(singleton(ki)), LightTriangle()) // APP
       }}))
     ]
@@ -107,7 +107,7 @@ val icRules = [
   // k-(k1+, ..., km+) <> k+(x1+, ..., xn+, b-) ~> b-(b1+, ..., bm+), x1+(x11-, ..., x1m-), ..., xn+(xn1-, ..., xnm-), // DUP, SUPs
   //                                               k1+(x11+, ..., xn1+, b1-), ..., km+(x1m+, ..., xnm+, bm-)           // LAMs
   // lambda commutation duplicator in LC: DUP-LAM
-  Rule(DarkTriangle(), LightTriangle(), box { (m, n) => 
+  Rule(DarkTriangle(), LightTriangle(), box { (m, n) =>
     if (m == 0) [
       Many(RightBiased(box { (i, xbi) =>
         do constructor(xbi, [], DarkTriangle())
@@ -119,16 +119,16 @@ val icRules = [
       })),
     ] else [
       ManyFinally(RightBiased(box { (i, xi) =>
-        val xis = m.list::build { i => Port("${xi.name}_${i.show}", Neg()) }.reverse
+        val xis = m.list::build { i => Port(s"${xi.name}_${i.show}", Neg()) }.reverse
         do constructor(xi, xis, DarkTriangle()) // DUP
       }), Symmetric(box { (i, k, b) =>
-        val bs = m.list::build { i => Port("${b.name}_${i.show}", Pos()) }.reverse
+        val bs = m.list::build { i => Port(s"${b.name}_${i.show}", Pos()) }.reverse
         do constructor(b, bs, DarkTriangle()) // SUP
       })),
       Many(LeftBiased(box { (i, ki) => if (i <= m) {
         val b = do right(n - 1)
-        val bi = Port("${b.name}_${i.show}", Neg())
-        val xis = (n - 1).list::build { j => Port("${do right(j).name}_${i.show}", Pos()) }
+        val bi = Port(s"${b.name}_${i.show}", Neg())
+        val xis = (n - 1).list::build { j => Port(s"${do right(j).name}_${i.show}", Pos()) }
         do constructor(ki, xis.append(singleton(bi)), LightTriangle())
       }}))
     ]
