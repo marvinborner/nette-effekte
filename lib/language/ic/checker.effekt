@@ -17,7 +17,6 @@ def checkPolarities(): Unit / { Exception[WrongFormat], next[Constructor], emit[
 
   loop {
     val ctor = do next()
-    println(ctor.term::pretty)
     ctor.pp.check()
     ctor.aux.foreach { p => p.check() }
     do emit(ctor)

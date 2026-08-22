@@ -1,4 +1,5 @@
-// left empty for future expansion
+// TODO: support LLVM
+
 record Terminal(data: String, highlighted: List[String])
 
 def empty() = Terminal("", Nil())
@@ -9,12 +10,15 @@ extern def rawMode(): Unit =
     process.stdin.setRawMode(true);
     // process.stdin.resume();
   })()"""
+  llvm "ret %Pos zeroinitializer"
   default { <> }
 
 extern def onKeyPress(handler: String => Unit at {io, global}) at io: Unit =
   jsNode "process.stdin.on('keypress', (letter, key) => $effekt.runToplevel((ks, k) => ${handler}(letter, ks, k)))"
+  llvm "ret %Pos zeroinitializer"
   default { <> }
 
 extern def removeKeyPressListeners() at io: Unit =
   jsNode "process.stdin.removeAllListeners('keypress');"
+  llvm "ret %Pos zeroinitializer"
   default { <> }

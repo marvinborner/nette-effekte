@@ -49,20 +49,23 @@ extern type IdleDeadline
 
 extern def async(callback: => Unit at {io, global}) at io: Unit =
   jsWeb "setTimeout(() => $effekt.runToplevel((ks, k) => ${callback}(ks, k)), 0)"
+  llvm "ret %Pos zeroinitializer"
   default { <> }
 
 extern def requestIdleCallback(callback: IdleDeadline => Unit at {io, global}) at io: Unit =
   jsWeb "window.requestIdleCallback(deadline => $effekt.runToplevel((ks, k) => ${callback}(deadline, ks, k)))"
   jsNode "setTimeout(() => $effekt.runToplevel((ks, k) => ${callback}(0, ks, k)), 0)"
+  llvm "ret %Pos zeroinitializer"
   default { <> }
-  // jsNode "require('node:process').nextTick(() => $effekt.runToplevel((ks, k) => ${callback}(0, ks, k)))"
 
 extern def requestAnimationFrame(callback: Int => Unit at {io, global}) at io: Unit =
   jsWeb "window.requestAnimationFrame(timestamp => $effekt.runToplevel((ks, k) => ${callback}(timestamp, ks, k)))"
+  llvm "ret %Pos zeroinitializer"
   default { <> }
 
 extern def style(path: String) at io: Unit =
   jsWeb "document.head.insertAdjacentHTML('beforeend', '<link rel=\"stylesheet\" href=${path} />')"
+  llvm "ret %Pos zeroinitializer"
   default { <> }
 
 effect tag(): Tag
