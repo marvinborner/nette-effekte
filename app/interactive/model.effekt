@@ -33,7 +33,7 @@ def resolveWire(resolver: WireResolver, label: Label, position: Vector): WireRes
 }
 
 def render(state: NetState): Unit / { Draw, NetStream } = {
-  var positions: Map[Label, Vector] = emptyGeneric()
+  var positions: Map[Label, Vector] = empty(box compareInt)
   var wires: List[Tuple2[WireResolver, WireResolver]] = Nil()
 
   def resolve(label: Label, position: Vector) = {

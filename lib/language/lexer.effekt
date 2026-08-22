@@ -4,11 +4,11 @@ import regex
 
 record Position(line: Int, col: Int, index: Int)
 
-def show(p: Position): String = s"${p.line.show}:${p.col.show}:${p.index.show}"
+def pretty(p: Position): String = s"${p.line.show}:${p.col.show}:${p.index.show}"
 
 type TokenKind { Number(); Ident(); Punct(); Space() }
 
-def show(t: TokenKind): String = t match {
+def pretty(t: TokenKind): String = t match {
   case Number() => "number"
   case Ident()  => "identifier"
   case Punct()  => "punctuation"
@@ -26,7 +26,7 @@ def infixEq(t1: TokenKind, t2: TokenKind): Bool =
 
 record Token(kind: TokenKind, text: String, position: Position)
 
-def show(t: Token): String = t.kind.show
+def pretty(t: Token): String = t.kind.pretty
 
 interface Lexer {
   def peek(): Option[Token]

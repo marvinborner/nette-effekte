@@ -18,8 +18,8 @@ def infixEq(as: List[Neg], bs: List[Neg]) =
 def infixEq(as: List[Pos], bs: List[Pos]) =
   as.size == bs.size && as.zip(bs).all { case (a, b) => a == b}
 
-def show(port: Pos) = port.name ++ "+"
-def show(port: Neg) = port.name ++ "-"
+def pretty(port: Pos) = port.name ++ "+"
+def pretty(port: Neg) = port.name ++ "-"
 
 def super(port: Neg): SuperPort = Left(port)
 def super(port: Pos): SuperPort = Right(port)
@@ -37,7 +37,7 @@ def name(port: SuperPort) = port match {
   case Right(p) => p.name
 }
 
-def show(port: SuperPort): String = port match {
+def pretty(port: SuperPort): String = port match {
   case Left(p)  => p.name ++ "-"
   case Right(p) => p.name ++ "+"
 }
@@ -68,19 +68,19 @@ type Constructor {
   Superposer(i: Pos, out: List[Neg], label: Int);
 }
 
-def show(ctor: Constructor) = {
-  def pretty(many: List[Pos]) = many.map { p => p.show() }.join(", ")
-  def pretty(many: List[Neg]) = many.map { p => p.show() }.join(", ")
+def pretty(ctor: Constructor) = {
+  def pretty(many: List[Pos]) = many.map { p => p.pretty() }.join(", ")
+  def pretty(many: List[Neg]) = many.map { p => p.pretty() }.join(", ")
   ctor match {
-    case Initiator(k)              => s"ι(${k.show})"
-    case Abstractor(x, b, k)       => s"λ(${x.show}, ${b.show}, ${k.show})"
-    case Applicator(f, a, k)       => s"@(${f.show}, ${a.show}, ${k.show})"
-    case Duplicator(o, ins, label) => s"δ(${o.show}, ${ins.pretty})(${label.show})"
-    case Superposer(i, out, label) => s"σ(${i.show}, ${out.pretty})(${label.show})"
+    case Initiator(k)              => s"ι(${k.pretty})"
+    case Abstractor(x, b, k)       => s"λ(${x.pretty}, ${b.pretty}, ${k.pretty})"
+    case Applicator(f, a, k)       => s"@(${f.pretty}, ${a.pretty}, ${k.pretty})"
+    case Duplicator(o, ins, label) => s"δ(${o.pretty}, ${ins.pretty})(${label.show})"
+    case Superposer(i, out, label) => s"σ(${i.pretty}, ${out.pretty})(${label.show})"
   }
 }
-def show(ctors: List[Constructor]) =
-  "[" ++ ctors.map { ctor => ctor.show() }.join(", ") ++ "]"
+def pretty(ctors: List[Constructor]) =
+  "[" ++ ctors.map { ctor => ctor.pretty() }.join(", ") ++ "]"
 
 def sameKind(ctor1: Constructor, ctor2: Constructor) = (ctor1, ctor2) match {
   case (Initiator(k1),                Initiator(k2)) => true
@@ -113,9 +113,9 @@ def empty(): Program = box {}
 record Redex(left: Constructor, right: Constructor) // pp: (-, +)
 type RedexBag = => Unit / emit[Redex] at {io, global} // finding redexes requires dereferencing Refs
 
-def show(redex: Redex) = s"(${redex.left.show} >< ${redex.right.show})"
-def show(redexes: List[Redex]) =
-  "[" ++ redexes.map { redex => redex.show() }.join(", ") ++ "]"
+def pretty(redex: Redex) = s"(${redex.left.pretty} >< ${redex.right.pretty})"
+def pretty(redexes: List[Redex]) =
+  "[" ++ redexes.map { redex => redex.pretty() }.join(", ") ++ "]"
 def infixEq(a: Redex, b: Redex) = a.left == b.left && a.right == b.right
 def infixEq(as: List[Redex], bs: List[Redex]) = 
   as.size == bs.size && as.zip(bs).all { case (a, b) => a == b}
@@ -154,11 +154,11 @@ def kind(ctor: Constructor): Kind = ctor match {
   case Superposer(i, out, label) => DarkTriangle()
 }
 
-def show(prog: Program) = {
+def pretty(prog: Program) = {
   var res = ""
   try prog()
   with emit[Constructor] { ctor =>
-    res = s"${res}${ctor.show}\n"
+    res = s"${res}${ctor.pretty}\n"
     resume(())
   }
   res

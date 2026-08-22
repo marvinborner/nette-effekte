@@ -25,7 +25,7 @@ def length(t: Term) =
     def app(f, a) = resume(1 + f + a)
   }
 
-def show(t: Term) =
+def pretty(t: Term) =
   try t.cata
   with TermF[String] {
     def sym(x)    = resume(s"${x}")

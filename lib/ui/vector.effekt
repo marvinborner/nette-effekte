@@ -2,11 +2,11 @@
 
 record Vector(x: Double, y: Double)
 
-def infixAdd(v1: Vector, v2: Vector) = Vector(v1.x + v2.x, v1.y + v2.y)
-def infixSub(v1: Vector, v2: Vector) = Vector(v1.x - v2.x, v1.y - v2.y)
-def infixAdd(v: Vector, s: Double) = Vector(v.x + s, v.y + s)
-def infixMul(v: Vector, s: Double) = Vector(v.x * s, v.y * s)
-def infixDiv(v: Vector, s: Double) = Vector(v.x / s, v.y / s)
+def infixPlus(v1: Vector, v2: Vector) = Vector(v1.x + v2.x, v1.y + v2.y)
+def infixMinus(v1: Vector, v2: Vector) = Vector(v1.x - v2.x, v1.y - v2.y)
+def infixPlus(v: Vector, s: Double) = Vector(v.x + s, v.y + s)
+def infixStar(v: Vector, s: Double) = Vector(v.x * s, v.y * s)
+def infixSlash(v: Vector, s: Double) = Vector(v.x / s, v.y / s)
 
 def dot(v1: Vector, v2: Vector) = (v1.x * v2.x) + (v1.y * v2.y)
 def magnitude(v: Vector) = sqrt(v.dot(v))

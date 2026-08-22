@@ -3,8 +3,8 @@ import map
 import lib/utils
 import lib/language/ic/term
 
-def checkPolarities(): Unit / { Exception[WrongFormat], read[Constructor], emit[Constructor] } = {
-  var map: Map[String, SuperPort] = emptyGeneric()
+def checkPolarities(): Unit / { Exception[WrongFormat], next[Constructor], emit[Constructor] } = {
+  var map: Map[String, SuperPort] = empty(box compareStringBytes)
 
   def check(port: SuperPort) = {
     map.get(port.name) match {
@@ -16,8 +16,8 @@ def checkPolarities(): Unit / { Exception[WrongFormat], read[Constructor], emit[
   }
 
   loop {
-    val ctor = do read()
-    println(ctor.term::show)
+    val ctor = do next()
+    println(ctor.term::pretty)
     ctor.pp.check()
     ctor.aux.foreach { p => p.check() }
     do emit(ctor)
@@ -26,5 +26,5 @@ def checkPolarities(): Unit / { Exception[WrongFormat], read[Constructor], emit[
   if (map.size > 1) wrongFormat(s"only 1 wire is allowed to be free, but ${map.size.show} are")
 }
 
-def check!(): Unit / { Exception[WrongFormat], read[Constructor], emit[Constructor] } =
+def check!(): Unit / { Exception[WrongFormat], next[Constructor], emit[Constructor] } =
   checkPolarities()

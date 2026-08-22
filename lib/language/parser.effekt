@@ -12,7 +12,7 @@ effect Parser = { Nondet, Lexer }
 def accept { p: Token => Bool } : Token / Parser = {
   val got = do next();
   if (p(got)) got
-  else do fail(s"Unexpected ${got.lexer::show} token")
+  else do fail(s"Unexpected ${got.lexer::pretty} token")
 }
 
 def any() = accept { t => true }

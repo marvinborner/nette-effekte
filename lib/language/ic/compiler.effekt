@@ -7,7 +7,7 @@ import lib/language/ic/parser
 import lib/language/ic/checker
 import lib/language/ic/uniquifier
 
-def compile!(): Unit / { Exception[WrongFormat], read[Char], emit[Constructor] } =
+def compile!(): Unit / { Exception[WrongFormat], next[Char], emit[Constructor] } =
   with source[Constructor] { parse!() }
   with source[Constructor] { check!() }
   uniquify!()

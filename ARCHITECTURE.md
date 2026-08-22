@@ -86,9 +86,9 @@ not be replayed if they use side effects (like parsing).
 Roughly, a full pipeline from LC could look like this (slightly modified
 signatures for simplicity):
 
-    language/lc/parser::parse!() / { read[Char], emit[Term] } // parse to term
+    language/lc/parser::parse!() / { next[Char], emit[Term] } // parse to term
     -->
-    language/lc/netter::net! / { read[Term], emit[Constructor] } // translate to IC constructors
+    language/lc/netter::net! / { next[Term], emit[Constructor] } // translate to IC constructors
     -->
     language/ic/ruler::redexes { / emit[Constructor] } / emit[Redex] // find redexes between IC constructors
     -->
@@ -96,7 +96,7 @@ signatures for simplicity):
     -->
     ... // as many reduction steps as wanted
     -->
-    net/net::net! / { read[Constructor], NetStream } // convert constructors to positioned nodes with explicit edges
+    net/net::net! / { next[Constructor], NetStream } // convert constructors to positioned nodes with explicit edges
     -->
     net/net::layout { / NetStream } / NetStream // single-step force-directed layout
     -->

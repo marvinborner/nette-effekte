@@ -59,9 +59,9 @@ def interact(redex: Redex): Unit / { Interact, fresh } = redex match {
   // beta-reduction: APP-LAM
   case Redex(Applicator(Neg(f1), Neg(a), Pos(k)), Abstractor(Pos(x), Neg(b), Pos(f2))) and f1 == f2 => {
     do rewire([
-      (Neg(a).show, Substitution(Neg(a).super, do target(Pos(x).show))),
-      (Neg(b).show, Substitution(Neg(b).super, do target(Pos(k).show)))
-    ].map::fromListGeneric)
+      (Neg(a).pretty, Substitution(Neg(a).super, do target(Pos(x).pretty))),
+      (Neg(b).pretty, Substitution(Neg(b).super, do target(Pos(k).pretty)))
+    ].map::fromList(box compareStringBytes))
     do potential(a.get) // TODO: theoretically, we'd only need to somehow check if Neg(a) is at a principal port
     do potential(b.get)
   }
@@ -124,8 +124,8 @@ def interact(redex: Redex): Unit / { Interact, fresh } = redex match {
   // symmetric duplicator annihilation: DUP-SUP
   case Redex(Duplicator(Neg(k1), out, l1), Superposer(Pos(k2), ins, l2)) and k1 == k2 and l1 == l2 and out.size == ins.size => {
     val rewiring = out.zip(ins).map { case (o, i) =>
-      (i.show, Substitution(i.super, do target(o.show)))
-    }.map::fromListGeneric
+      (i.pretty, Substitution(i.super, do target(o.pretty)))
+    }.map::fromList(box compareStringBytes)
     do rewire(rewiring)
     ins.foreach { i => do potential(i.port.get) } // REMEMBER: potential must always happen after rewiring
   }
@@ -154,21 +154,21 @@ def interact(redex: Redex): Unit / { Interact, fresh } = redex match {
   }
   
   case _ => {
-    inspect(redex)
+    print(redex.pretty)
     panic("invalid redex")
   }
 }
 
 /// build up a static, doubly linked relationship between positive and negative ports
-/// the relationship is from SuperPort.show to SuperPort
+/// the relationship is from SuperPort.pretty to SuperPort
 def wiring(program: Program): Map[String, SuperPort] = {
-  var wiring: Map[String, SuperPort] = emptyGeneric() // pname -> target port
-  var map: Map[String, SuperPort] = emptyGeneric() // name -> own port
+  var wiring: Map[String, SuperPort] = empty(box compareStringBytes) // pname -> target port
+  var map: Map[String, SuperPort] = empty(box compareStringBytes) // name -> own port
 
   def link(port: SuperPort): Unit = {
     map.get(port.name) match {
       case Some(target) =>
-        wiring = wiring.put(port.show, target).put(target.show, port)
+        wiring = wiring.put(port.pretty, target).put(target.pretty, port)
       case None() =>
         map = map.put(port.name, port)
     }
@@ -183,11 +183,11 @@ def wiring(program: Program): Map[String, SuperPort] = {
 }
 
 def unionFind(rewiring: Ref[Map[String, Substitution]], to: SuperPort): SuperPort = {
-  val substitution = rewiring.get.get(to.show)
+  val substitution = rewiring.get.get(to.pretty)
   substitution match {
-    case Some(Substitution(from, target)) and target.show != to.show =>
+    case Some(Substitution(from, target)) and target.pretty != to.pretty =>
       val root = rewiring.unionFind(target)
-      rewiring.map { w => w.delete(from.show) }
+      rewiring.map { w => w.delete(from.pretty) }
       root
     case _ =>
       to
@@ -198,19 +198,19 @@ def rewire(wiring: Ref[Map[String, SuperPort]], _rewiring: Map[String, Substitut
   val rewiring = ref(_rewiring)
   _rewiring.values.foreach { case Substitution(from, _to) => // pre-substitute
     val to = rewiring.unionFind(_to)
-    if (to.show != _to.show)
-      rewiring.map { w => w.put(from.show, Substitution(from, to)) }
+    if (to.pretty != _to.pretty)
+      rewiring.map { w => w.put(from.pretty, Substitution(from, to)) }
   }
   rewiring.get.values.foreach { case Substitution(from, to) => // substitute
     to.port.set(from.port.get)
-    wiring.map { w => w.put(to.show, from).put(from.show, to) }
+    wiring.map { w => w.put(to.pretty, from).put(from.pretty, to) }
   }
 }
 
 def step_(program: Program, redex: Redex): List[Port] / { emit[Constructor], fresh } = {
-  val annihilated = ref[Set[Constructor]](emptyGeneric())
+  val annihilated = ref[Set[String]](set::empty(box compareStringBytes))
   val constructed = ref[List[Constructor]](Nil())
-  val potential = ref[Set[Port]](emptyGeneric())
+  val potential = ref[Set[Port]](set::empty(box compareStringBytes))
   val wiring = ref(program.wiring())
 
   try {
@@ -218,16 +218,16 @@ def step_(program: Program, redex: Redex): List[Port] / { emit[Constructor], fre
     do annihilate(redex.left)
     do annihilate(redex.right)
   } with Interact {
-    def annihilate(ctor) = resume(annihilated.map { s => s.insert(ctor) })
+    def annihilate(ctor) = resume(annihilated.map { s => s.insert(ctor.pretty) })
     def construct(ctor) = resume(do emit(ctor))
     def potential(port) = resume(potential.map { s => s.insert(port) })
-    def target(from) = resume(wiring.get.getOrElse(from) { panic(s"invalid target: ${from.show}") })
-    def wire(from, to) = resume(wiring.map { w => w.put(from.show, to.super).put(to.show, from.super) })
+    def target(from) = resume(wiring.get.getOrElse(from) { panic(s"invalid target: ${from}") })
+    def wire(from, to) = resume(wiring.map { w => w.put(from.pretty, to.super).put(to.pretty, from.super) })
     def rewire(rewiring) = resume(wiring.rewire(rewiring))
   }
 
-  for { program() } { ctor =>
-    if (not(annihilated.get.contains(ctor))) {
+  for[Constructor] { program() } { ctor =>
+    if (not(annihilated.get.set::contains(ctor.pretty))) {
       do emit(ctor)
     }
   }
@@ -242,23 +242,14 @@ def pop(mode: StepMode, redexes: RedexBag): Redex / { fail, emit[Redex] } = mode
 
 def step(program: Program, mode: StepMode, redexes: RedexBag): Unit / { emit[Constructor], emit[Redex], fresh, fail } = {
   val redex = pop(mode, redexes)
-  // println(s"\n=== REDEX: ${redex.show} ===")
+  // println(s"\n=== REDEX: ${redex.pretty} ===")
   val tup: (List[Port], Program) = returning::collect { program.step_(redex) }
   val (potential, program) = tup
 
-  // println(list::collect[Constructor] { program() }.show { ctor => ctor.show })
+  // println(list::collect[Constructor] { program() }.pretty { ctor => ctor.pretty })
 
-  // only for debugging
-  val posPorts = collect[Constructor] { program() }.flatMap { ctor => ctor.ports }.filter { p => p.isPos }.map { p => p.name }.set::fromListGeneric
-  val negPorts = collect[Constructor] { program() }.flatMap { ctor => ctor.ports }.filter { p => p.isNeg }.map { p => p.name }.set::fromListGeneric
-  if (posPorts.difference(negPorts).size != 0) {
-    println("\n!!! FATAL " ++ posPorts.toList.show ++ " vs " ++ negPorts.toList.show)
-    // println("\nREDEX: " ++ redex.left.show ++ " - " ++ redex.right.show)
-    println(posPorts.difference(negPorts).toList.show)
-  } else {
-    program.redexes(potential)
-    program()
-  }
+  program.redexes(potential)
+  program()
 }
 
 def normalize(program: Program, redexes: RedexBag, max: Int): (Program, Int) = {

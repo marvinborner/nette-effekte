@@ -19,11 +19,11 @@ def plumbing { prog: => Unit / port } = {
   }
 }
 
-def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
+def net!(): Unit / { Exception[WrongFormat], next[Term], emit[Constructor] } = {
   with plumbing
   with loop
 
-  val term = do read[Term]()
+  val term = do next[Term]()
 
   def bind(bindings: Map[String, List[Port]], label: Int, x: String): Port / { port, emit[Constructor] } = {
     with on[MissingValue].panic() // can not happen
@@ -48,7 +48,7 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
   with TermF[Int => Context / { port, emit[Constructor] } at {io, global}] {
     def sym(x) = resume(box { _ =>
       val px = do port(x ++ "Sym")
-      Context(px, singletonGeneric(x, [px]))
+      Context(px, singleton(x, [px], box compareStringBytes))
     })
 
     def abs(x, b) = resume(box { label =>
@@ -64,7 +64,8 @@ def net!(): Unit / { Exception[WrongFormat], read[Term], emit[Constructor] } = {
       val Context(pa, ba) = a(label + 1)
       val pk = do port("kApp")
       do emit(Applicator(Neg(pf.ref), Neg(pa.ref), Pos(pk.ref)))
-      Context(pk, bf.union(ba, box { (a, b) => a.genericCompare(b) }) { (k, a, b) => a.append(b) })
+      Context(pk, bf.union(ba, box compareStringBytes) {
+        (k, a, b) => a.append(b) })
     })
   }(0)
 

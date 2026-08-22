@@ -45,13 +45,13 @@ interface Model[C, O] {
   def getErrors(): String
 }
 
-def show(m: Mode) = m match {
+def pretty(m: Mode) = m match {
   case LambdaCalculus()      => "Lambda Calculus"
   case InteractionCalculus() => "Interaction Calculus"
 }
 
 def empty[N, C, O](): EvaluatorState[N] / NetModel[N, C, O] = {
-  var map = map::emptyGeneric[Mode, TextStream]()
+  var map = map::empty[Mode, TextStream](box { (a, b) => compareStringBytes(a.pretty, b.pretty) })
   val emptyStream: => Unit / emit[Char] at {global} = box{}
   map = map.put(LambdaCalculus(), emptyStream)
   map = map.put(InteractionCalculus(), emptyStream)
@@ -104,7 +104,7 @@ def render[N, C, O](state: EvaluatorState[N]): EvaluatorState[N] / { NetModel[N,
     }
     case EvaluatorState(LambdaCalculus(), sources, net, errors) => {
       val prog: Program = collect { lc::compile!() } // reify for storing in IC source
-      val sources_ = sources.put(InteractionCalculus(), box { prog.term::show.each })
+      val sources_ = sources.put(InteractionCalculus(), box { prog.term::pretty.each })
       val net_ = do render(do load(net) { prog() })
       EvaluatorState(LambdaCalculus(), sources_, net_, "")
     }

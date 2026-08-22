@@ -101,7 +101,7 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = {
     case HtmlView(update, view) =>
       val MS_TICK = 80 // tick every n ms
 
-      val dirtyTags = ref[Set[Tag]](emptyGeneric())
+      val dirtyTags = ref[Set[Tag]](empty(box compareInt))
       val tickers = ref[List[=> Unit at {io, global}]](Nil())
 
       def send(tag: Tag, ev: Ev): Unit = inbox.set(Cons(Event(tag, ev), inbox.get))
@@ -181,7 +181,7 @@ def run[St, Ev](root: Node, init: St, app: View[St, Ev]) = {
           else root.merge(rendered)
 
           dirty.set(Clean())
-          dirtyTags.set(emptyGeneric())
+          dirtyTags.set(set::empty(box compareInt))
         }
       }
 
