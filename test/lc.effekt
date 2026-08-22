@@ -9,7 +9,7 @@ import lib/language/ic/term
 def tests() = suite("└ lc tests") {
   test("lc generic ops") {
     val omega = App(Abs("x", App(Sym("x"), Sym("x"))), Abs("x", App(Sym("x"), Sym("x"))))
-    assertEqual(omega.term::show, "(λx.(x x) λx.(x x))")
+    assertEqual(omega.term::pretty, "(λx.(x x) λx.(x x))")
     assertEqual(omega.length, 9)
   }
 
@@ -21,7 +21,7 @@ def tests() = suite("└ lc tests") {
     }
     assertEqual(ctors, [
       Abstractor(Pos("xSym1".ref), Neg("xSym1".ref), Pos("kAbs2".ref)), // (x => x)_k
-      Initiator(Neg("kAbs2".ref))]) { (a, b) => a == b } { c => c.show }
+      Initiator(Neg("kAbs2".ref))]) { (a, b) => a == b } { c => c.pretty }
   }
 
   test("lc compilation: identity annihilation") {
@@ -34,65 +34,59 @@ def tests() = suite("└ lc tests") {
       Abstractor(Pos("xSym1".ref), Neg("xSym1".ref), Pos("kAbs2".ref)), // (x => x1)_k
       Abstractor(Pos("ySym3".ref), Neg("ySym3".ref), Pos("kAbs4".ref)), // (y => y1)_k5
       Applicator(Neg("kAbs2".ref), Neg("kAbs4".ref), Pos("kApp5".ref)), // (k2 k5)_k7
-      Initiator(Neg("kApp5".ref))]) { (a, b) => a == b } { c => c.show }
+      Initiator(Neg("kApp5".ref))]) { (a, b) => a == b } { c => c.pretty }
   }
 
-  // test("lc compilation: omega") {
-  //   val ctors: List[Constructor] = collect {
-  //     with assertNoThrow[WrongFormat]
-  //     with source[Char] { "x => (x x)".each }
-  //     compile!()
-  //   }
-  //   assertEqual(ctors, [
-  //     Constructor(Port("xSym1", Neg()), [Port("xSym2", Neg()), Port("kApp3", Pos())], LightTriangle()),  // (x1 x2)_k3
-  //     Constructor(Port("xDup5", Neg()), [Port("xSym1", Pos()), Port("xSym2", Pos())], DarkTriangle()),   // dup x.x1 x2
-  //     Constructor(Port("kAbs4", Pos()), [Port("xDup5", Pos()), Port("kApp3", Neg())], LightTriangle())]) // (x => k_3)_k4
-  // }
+  test("lc compilation: omega") {
+    val ctors: List[Constructor] = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "x => (x x)".each }
+      compile!()
+    }
+    assertEqual(ctors, [
+      Applicator(Neg("xSym1".ref), Neg("xSym2".ref), Pos("kApp3".ref)),      // (x1 x2)_k3
+      Duplicator(Neg("xDup5".ref), [Pos("xSym1".ref), Pos("xSym2".ref)], 0), // dup x.x1 x2
+      Abstractor(Pos("xDup5".ref), Neg("kApp3".ref), Pos("kAbs4".ref)),      // (x => k3)_k4
+      Initiator(Neg("kAbs4".ref))]) { (a, b) => a == b } { c => c.pretty }
+  }
 
-  // test("lc compilation: shadowing") {
-  //   val ctors: List[Constructor] = collect {
-  //     with assertNoThrow[WrongFormat]
-  //     with source[Char] { "x => (x x => x)".each }
-  //     compile!()
-  //   }
-  //   assertEqual(ctors, [
-  //     Constructor(Port("xDup4", Neg()), [Port("xSym2", Pos())], DarkTriangle()),                         // dup x.x2
-  //     Constructor(Port("kAbs3", Pos()), [Port("xDup4", Pos()), Port("xSym2", Neg())], LightTriangle()),  // (x => x)_k3
-  //     Constructor(Port("xSym1", Neg()), [Port("kAbs3", Neg()), Port("kApp5", Pos())], LightTriangle()),  // (x k3)_k5
-  //     Constructor(Port("xDup7", Neg()), [Port("xSym1", Pos())], DarkTriangle()),                         // dup x.x1
-  //     Constructor(Port("kAbs6", Pos()), [Port("xDup7", Pos()), Port("kApp5", Neg())], LightTriangle())]) // (x => k6)_k5
-  // }
+  test("lc compilation: shadowing") {
+    val ctors: List[Constructor] = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "x => (x x => x)".each }
+      compile!()
+    }
+    // the inner x is bound exactly once, so it does not need a duplicator
+    assertEqual(ctors, [
+      Abstractor(Pos("xSym2".ref), Neg("xSym2".ref), Pos("kAbs3".ref)), // (x => x2)_k3
+      Applicator(Neg("xSym1".ref), Neg("kAbs3".ref), Pos("kApp4".ref)), // (x1 k3)_k4
+      Abstractor(Pos("xSym1".ref), Neg("kApp4".ref), Pos("kAbs5".ref)), // (x => k4)_k5
+      Initiator(Neg("kAbs5".ref))]) { (a, b) => a == b } { c => c.pretty }
+  }
 
-  // test("lc compilation: complex") {
-  //   val ctors: List[Constructor] = collect {
-  //     with assertNoThrow[WrongFormat]
-  //     with source[Char] { "(x => (x x) y => y)".each }
-  //     compile!()
-  //   }
-  //   assertEqual(ctors, [
-  //     Constructor(Port("xSym1", Neg()), [Port("xSym2", Neg()), Port("kApp3", Pos())], LightTriangle()),  // (x1 x2)_k3
-  //     Constructor(Port("xDup5", Neg()), [Port("xSym1", Pos()), Port("xSym2", Pos())], DarkTriangle()),   // dup x.x1 x2
-  //     Constructor(Port("kAbs4", Pos()), [Port("xDup5", Pos()), Port("kApp3", Neg())], LightTriangle()),  // (x => k3)_k4
-  //     Constructor(Port("yDup8", Neg()), [Port("ySym6", Pos())], DarkTriangle()),                         // dup y.y1
-  //     Constructor(Port("kAbs7", Pos()), [Port("yDup8", Pos()), Port("ySym6", Neg())], LightTriangle()),  // (y => y1)_k7
-  //     Constructor(Port("kAbs4", Neg()), [Port("kAbs7", Neg()), Port("kApp9", Pos())], LightTriangle())]) // (k4 k7)_k9
-  // }
+  test("lc compilation: complex") {
+    val ctors: List[Constructor] = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "(x => (x x) y => y)".each }
+      compile!()
+    }
+    assertEqual(ctors, [
+      Applicator(Neg("xSym1".ref), Neg("xSym2".ref), Pos("kApp3".ref)),      // (x1 x2)_k3
+      Duplicator(Neg("xDup5".ref), [Pos("xSym1".ref), Pos("xSym2".ref)], 0), // dup x.x1 x2
+      Abstractor(Pos("xDup5".ref), Neg("kApp3".ref), Pos("kAbs4".ref)),      // (x => k3)_k4
+      Abstractor(Pos("ySym6".ref), Neg("ySym6".ref), Pos("kAbs7".ref)),      // (y => y6)_k7
+      Applicator(Neg("kAbs4".ref), Neg("kAbs7".ref), Pos("kApp8".ref)),      // (k4 k7)_k8
+      Initiator(Neg("kApp8".ref))]) { (a, b) => a == b } { c => c.pretty }
+  }
 
-  // test("lc compilation: fail on open terms") {
-  //   val ctors1: List[Constructor] = collect {
-  //     with assertThrows[WrongFormat]
-  //     with source[Char] { "x".each }
-  //     compile!()
-  //   }
-  //   val ctors2: List[Constructor] = collect {
-  //     with assertThrows[WrongFormat]
-  //     with source[Char] { "x => y".each }
-  //     compile!()
-  //   }
-  //   val ctors3: List[Constructor] = collect {
-  //     with assertThrows[WrongFormat]
-  //     with source[Char] { "x => (x y)".each }
-  //     compile!()
-  //   }
-  // }
+  test("lc compilation: fail on open terms") {
+    ["x", "x => y", "x => (x y)"].foreach { term =>
+      with assertThrows[WrongFormat]
+      list::collect[Constructor] {
+        with source[Char] { term.each }
+        compile!()
+      }
+      ()
+    }
+  }
 }

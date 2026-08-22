@@ -11,10 +11,7 @@ def main() = mainSuite("nette-tests") {
     assertTrue(true)
     assertFalse(false)
 
-    assertTrue(ic::tests())
-    assertTrue(lc::tests())
-    assertTrue(net::tests())
-    assertTrue(layout::tests())
-    assertTrue(ruler::tests())
+    val suites = [ic::tests(), lc::tests(), net::tests(), layout::tests(), ruler::tests()]
+    assertTrue(suites.all { passed => passed })
   }
 }

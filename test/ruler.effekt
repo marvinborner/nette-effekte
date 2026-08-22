@@ -21,37 +21,61 @@ def confluence(n: Int) { test: => Unit / Assertion }: Unit / Assertion = {
   test()
 }
 
-/// equivalence after renaming
-def assertEquivalent(bs: List[Constructor], as: List[Constructor]): Unit / { Formatted, Assertion } = {
-  // TODO: do not require same ordering
+def render(ctors: List[Constructor], wires: Map[String, List[Int]], root: Int): (String, Set[Int]) = {
+  with on[OutOfBounds].panic() // `wires` only ever points into `ctors`
 
-  with on[MissingValue].default { assertTrue(false, s"constructor mismatch:\n${bs.show}\n vs\n${as.show}") }
-
+  var names: Map[String, String] = empty(box compareStringBytes) // port name -> traversal index
   var counter = 0
-  var aMap: Map[String, String] = emptyGeneric()
-  var bMap: Map[String, String] = emptyGeneric()
-  as.zip(bs).foreach { case (a, b) =>
-    assertTrue(a.sameKind(b), s"expected same constructor kind in\n${b.show}\n vs\n${a.show}")
-    a.ports.zip(b.ports).foreach { case (pa, pb) =>
-      if (aMap.contains(pa.name) || bMap.contains(pb.name)) {
-        // these accesses should potentially fail
-        val aName = aMap.get(pa.name).value
-        val bName = bMap.get(pb.name).value
-        assertEqual(aName, bName, s"expected same name, but got ${aName} and ${bName} in\n${b.show}\n vs\n${a.show}")
-        assertEqual(pa.isPos, pb.isPos, s"expected same polarity in\n${b.show}\n vs \n${a.show}")
-      } else {
-        aMap = aMap.put(pa.name, counter.show)
-        bMap = bMap.put(pb.name, counter.show)
+  var component: Set[Int] = empty(box compareInt)
+  var rendered: List[String] = Nil()
+
+  def number(port: SuperPort): Unit =
+    if (not(names.map::contains(port.name))) {
+      names = names.put(port.name, counter.show)
+      counter = counter + 1
+    }
+
+  def visit(i: Int): Unit =
+    if (not(component.set::contains(i))) {
+      component = component.insert(i)
+      val ctor = ctors.get(i)
+      ctor.ports.foreach { port => number(port) } // principal port first, then auxiliary
+      rendered = Cons(ctor.map { port => names.getOrElse(port.name) { port.name }.ref }.pretty, rendered)
+      ctor.ports.foreach { port =>
+        wires.getOrElse(port.name) { Nil() }.foreach { partner => if (partner != i) visit(partner) }
       }
     }
-  }
-  assertEqual(as.size, bs.size)
 
-  // TODO: this check should be redundant now
-  val aPorts = fromListGeneric(as.flatMap { ctor => ctor.ports.map { p => p.name } })
-  val bPorts = fromListGeneric(bs.flatMap { ctor => ctor.ports.map { p => p.name } })
-  assertEqual(aPorts.size, bPorts.size, s"Expected ${aPorts.size.show} unique variables, but got ${bPorts.size.show}:\n${aPorts.toList.show} vs ${bPorts.toList.show}\nin ${as.show}\nvs ${bs.show}")
+  visit(root)
+  (rendered.reverse.join(", "), component)
 }
+
+def canonical(ctors: List[Constructor]): String = {
+  var wires: Map[String, List[Int]] = empty(box compareStringBytes) // port name -> constructors sharing it
+  ctors.foreachIndex { (i, ctor) =>
+    ctor.ports.foreach { port =>
+      wires = wires.put(port.name, Cons(i, wires.getOrElse(port.name) { Nil() }))
+    }
+  }
+
+  def go(remaining: List[Int], components: List[String]): List[String] = remaining match {
+    case Nil() => components.sortBy { (a, b) => a <= b }
+    case Cons(root, _) =>
+      val (rendering, component) = ctors.render(wires, root)
+      val best = component.toList.foldLeft(rendering) { (best, start) =>
+        val candidate = ctors.render(wires, start).first
+        if (candidate <= best) candidate else best
+      }
+      go(remaining.filter { i => not(component.set::contains(i)) }, Cons(best, components))
+  }
+
+  go(list::build(ctors.size) { i => i }, Nil()).join(" | ")
+}
+
+def assertEquivalent(bs: List[Constructor], as: List[Constructor]): Unit / { Formatted, Assertion } =
+  assertEqual(bs, as, s"expected an equivalent net, but got\n${bs.pretty}\n vs\n${as.pretty}") {
+    (b, a) => b.canonical == a.canonical
+  }
 
 record Confluence(value: Int)
 record Steps(value: Int)
@@ -82,7 +106,7 @@ def tests() = suite("└ ruler tests") {
       Redex(
         Applicator(Neg("kAbs2".ref), Neg("kAbs4".ref), Pos("kApp5".ref)),
         Abstractor(Pos("xSym1".ref), Neg("xSym1".ref), Pos("kAbs2".ref)))
-    ]) { (a, b) => a == b } { r => r.show }
+    ]) { (a, b) => a == b } { r => r.pretty }
     val (normalized, steps) = normalize(program, redexes, 10)
     assertEqual(steps, 1)
     assertEquivalent(list::collect[Constructor] { normalized() }, [
@@ -119,7 +143,6 @@ def tests() = suite("└ ruler tests") {
     ])
   }
 
-  // this broke once! but only because of different ordering, so TODO: better equivalence check
   test("normalization: church i* annihilation") {
     "(s=>z=>(s (s (s (s (s (s z)))))) x=>y=>(x y))".normalizeWith(Confluence(50), Steps(17), [
       Applicator(Neg("xSym17_5_5".ref), Neg("ySym18_17_5".ref), Pos("kApp19_19_1".ref)), // (x y)

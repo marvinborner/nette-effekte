@@ -6,61 +6,70 @@ import lib/language/ic/compiler
 import lib/language/ic/term
 
 def tests() = suite("└ ic tests") {
-  // test("ic generic ops") {
-  //   val ctor = Constructor(Port("a", Neg()), [Port("a", Pos()), Port("k", Pos())], LightTriangle(), Empty())
-  //   assertEqual(ctor.arity, 2)
-  //   assertEqual(ctor.show, "a-(a+, k+)")
-  //   assertEqual(ctor.aux.map { port => port.negate }, [Port("a", Neg()), Port("k", Neg())])
-  //   assertEqual(ctor.aux.map { port => port.map { pol => pol.negate } }, [Port("a", Neg()), Port("k", Neg())])
-  // }
+  test("ic generic ops") {
+    val ctor = Applicator(Neg("f".ref), Neg("a".ref), Pos("k".ref))
+    assertEqual(ctor.arity, 2)
+    assertEqual(ctor.pretty, "@(f-, a-, k+)")
+    assertTrue(ctor.kind == LightTriangle())
+    assertEqual(ctor.pp.pretty, "f-")
+    assertEqual(ctor.aux.map { port => port.pretty }, ["a-", "k+"])
+    assertEqual(ctor.aux.map { port => port.negate.pretty }, ["a+", "k-"])
+    assertEqual(ctor.map { port => (port.name ++ "'").ref }.pretty, "@(f'-, a'-, k'+)")
 
-  // test("ic compilation: simple") {
-  //   val ctors: List[Constructor] = collect {
-  //     with assertNoThrow[WrongFormat]
-  //     with source[Char] { "a+(a-)".each }
-  //     compile!()
-  //   }
-  //   assertEqual(ctors, [Constructor(Port("a", Pos()), [Port("a", Neg())], LightTriangle(), Empty())])
-  // }
+    assertTrue(ctor.sameKind(Applicator(Neg("x".ref), Neg("y".ref), Pos("z".ref))))
+    assertFalse(ctor.sameKind(Abstractor(Pos("x".ref), Neg("y".ref), Pos("z".ref))))
+    assertFalse(Duplicator(Neg("a".ref), Nil(), 0).sameKind(Duplicator(Neg("a".ref), Nil(), 1)))
+  }
 
-  // test("ic compilation: multiline") {
-  //   val ctors: List[Constructor] = collect {
-  //     with assertNoThrow[WrongFormat]
-  //     with source[Char] { "a+(b-)\na-(b+)".each }
-  //     compile!()
-  //   }
-  //   assertEqual(ctors, [
-  //     Constructor(Port("a", Pos()), [Port("b", Neg())], LightTriangle(), Empty()),
-  //     Constructor(Port("a", Neg()), [Port("b", Pos())], LightTriangle(), Empty())])
-  // }
+  test("ic compilation: simple") {
+    val ctors: List[Constructor] = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "λ(x+ x- k+)".each }
+      compile!()
+    }
+    assertEqual(ctors, [
+      Abstractor(Pos("x".ref), Neg("x".ref), Pos("k".ref))]) { (a, b) => a == b } { c => c.pretty }
+  }
 
-  // test("ic compilation: duplicating nil/one/n") {
-  //   val ctors: List[Constructor] = collect {
-  //     with assertNoThrow[WrongFormat]
-  //     with source[Char] { "a+[]\nb-[a-]\nb+[c-, d-, d+ c+, k+]".each }
-  //     compile!()
-  //   }
-  //   assertEqual(ctors, [
-  //     Constructor(Port("a", Pos()), [], DarkTriangle(), Empty()),
-  //     Constructor(Port("b", Neg()), [Port("a", Neg())], DarkTriangle(), Empty()),
-  //     Constructor(Port("b", Pos()), [Port("c", Neg()), Port("d", Neg()), Port("d", Pos()), Port("c", Pos()), Port("k", Pos())], DarkTriangle(), Empty())])
-  // }
+  test("ic compilation: multiline") {
+    val ctors: List[Constructor] = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "δ(k- a+ b+)\nσ(k+ a- b-)".each }
+      compile!()
+    }
+    assertEqual(ctors, [
+      Duplicator(Neg("k".ref), [Pos("a".ref), Pos("b".ref)], 0),
+      Superposer(Pos("k".ref), [Neg("a".ref), Neg("b".ref)], 0)]) { (a, b) => a == b } { c => c.pretty }
+  }
 
-  // test("ic compilation: fail on >1 open wires") {
-  //   with assertThrows[WrongFormat]
-  //   list::collect[Constructor] {
-  //     with source[Char] { "a+(b-)".each }
-  //     compile!()
-  //   }
-  //   ()
-  // }
+  test("ic compilation: duplicating nil/one/n") {
+    val ctors: List[Constructor] = collect {
+      with assertNoThrow[WrongFormat]
+      with source[Char] { "δ(a-)\nδ(b- a+)\nσ(b+ c- d-)\nδ(k- c+ d+)".each }
+      compile!()
+    }
+    assertEqual(ctors, [
+      Duplicator(Neg("a".ref), Nil(), 0),                                 // erase a
+      Duplicator(Neg("b".ref), [Pos("a".ref)], 0),                        // wire b to a
+      Superposer(Pos("b".ref), [Neg("c".ref), Neg("d".ref)], 0),
+      Duplicator(Neg("k".ref), [Pos("c".ref), Pos("d".ref)], 0)]) { (a, b) => a == b } { c => c.pretty }
+  }
 
-  // test("ic compilation: fail on polarity mismatch") {
-  //   with assertThrows[WrongFormat]
-  //   list::collect[Constructor] {
-  //     with source[Char] { "a-(a-)".each }
-  //     compile!()
-  //   }
-  //   ()
-  // }
+  test("ic compilation: fail on >1 open wires") {
+    with assertThrows[WrongFormat]
+    list::collect[Constructor] {
+      with source[Char] { "δ(a- b+)".each }
+      compile!()
+    }
+    ()
+  }
+
+  test("ic compilation: fail on polarity mismatch") {
+    with assertThrows[WrongFormat]
+    list::collect[Constructor] {
+      with source[Char] { "δ(a- b+ b+)".each }
+      compile!()
+    }
+    ()
+  }
 }
