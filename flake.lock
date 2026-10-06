@@ -2,20 +2,17 @@
   "nodes": {
     "effekt-nix": {
       "inputs": {
-        "flake-utils": [
-          "flake-utils"
-        ],
         "nixpkgs": [
           "nixpkgs"
         ],
         "sbt-derivation": "sbt-derivation"
       },
       "locked": {
-        "lastModified": 1786949443,
-        "narHash": "sha256-XvSxFwAtF8rK20w1if+X4ZlwmzbQowpfEyhD22zR5wA=",
+        "lastModified": 1790599518,
+        "narHash": "sha256-dN7i1EbHrukV3oCC7nlGEfAZtrTaAZL3c8mQC/4aaRE=",
         "owner": "jiribenes",
         "repo": "effekt-nix",
-        "rev": "dffe3aebb45fd782352a16688fbf34b12ecc8a07",
+        "rev": "65e43d54a7e351d14d5a8bd07f781c654477f415",
         "type": "github"
       },
       "original": {
@@ -44,11 +41,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1786963906,
-        "narHash": "sha256-3tkeMWSvHPo3tYljfXbPC/TgknikU1GvdVr/DkdfvE0=",
+        "lastModified": 1791191277,
+        "narHash": "sha256-i8KuaINOYLvB2oQikGvtRmdZRxATRxsI9Yad2pp7dEA=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "f4b6996c4e8b9ee06ce147ec344c885f51071b14",
+        "rev": "aa48d347080940b8a2b8d2f48228674e280a3514",
         "type": "github"
       },
       "original": {
@@ -66,16 +63,7 @@
       }
     },
     "sbt-derivation": {
-      "inputs": {
-        "flake-utils": [
-          "effekt-nix",
-          "flake-utils"
-        ],
-        "nixpkgs": [
-          "effekt-nix",
-          "nixpkgs"
-        ]
-      },
+      "flake": false,
       "locked": {
         "lastModified": 1698464090,
         "narHash": "sha256-Pnej7WZIPomYWg8f/CZ65sfW85IfIUjYhphMMg7/LT0=",
